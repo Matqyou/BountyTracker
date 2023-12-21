@@ -23,14 +23,23 @@ CURRENT_FUN_MESSAGES: list[FunMessage] = []
 CURRENT_FUN_MESSAGE: FunMessage = None
 RICH_PRESENCE: Presence = None
 WINDOWS_RENDER = WindowsRender()
+CURRENT_LOG_FILE = f'{datetime.now().strftime("%m-%d-%Y %H-%M-%S")}'
 
 # Options read from Capture.txt file
 BOUNTY_LOCATION_ON_SCREEN: tuple = None
 DRAW_RECTANGLE_AROUND_CAPTURE: bool = None
+LOG_EVERYTHING_TO_FILE: bool = None
 
 
 def Print(text) -> None:
-    print(f'[{datetime.now().strftime("%m/%d/%Y %H:%M:%S")}] {text}')
+    out_text = f'[{datetime.now().strftime("%m/%d/%Y %H:%M:%S")}] {text}\n'
+    print(out_text, end='')
+
+    if LOG_EVERYTHING_TO_FILE:
+        if not os.path.exists(LOGS_DIRECTORY):
+            os.mkdir(LOGS_DIRECTORY)
+        with open(f'{LOGS_DIRECTORY}{CURRENT_LOG_FILE}', 'a') as log_file:
+            log_file.write(out_text)
 
 
 def ShowCaptureRectangle() -> None:
@@ -107,22 +116,43 @@ def LoadBounty() -> None:
 
 
 def main() -> None:
-    global BOUNTY_LOCATION_ON_SCREEN, DRAW_RECTANGLE_AROUND_CAPTURE, RICH_PRESENCE, CURRENT_BOUNTY, LAST_VALID_BOUNTY
+    global BOUNTY_LOCATION_ON_SCREEN, \
+        DRAW_RECTANGLE_AROUND_CAPTURE, \
+        LOG_EVERYTHING_TO_FILE, \
+        CURRENT_LOG_FILE, \
+        RICH_PRESENCE, \
+        CURRENT_BOUNTY, \
+        LAST_VALID_BOUNTY
 
     with open('Capture.txt', 'r') as capture_file:
         capture_options = [line for line in capture_file.read().splitlines(keepends=False)
                            if line and not line.startswith('#')]
 
-    num_capture_options = 2
+    num_capture_options = 3
     if len(capture_options) == num_capture_options:
         BOUNTY_LOCATION_ON_SCREEN = [int(param) for param in capture_options[0].split(',')]
         DRAW_RECTANGLE_AROUND_CAPTURE = capture_options[1].lower() == 'true'
+        LOG_EVERYTHING_TO_FILE = capture_options[2].lower() == 'true'
     else:
         raise ValueError(f'Capture.txt options must match {num_capture_options}, found: {capture_options}')
 
+    if LOG_EVERYTHING_TO_FILE:
+        instance_number = 1
+        suffix = ''
+        check_for_file = f'{CURRENT_LOG_FILE}{suffix}.txt'
+        while os.path.exists(f'{LOGS_DIRECTORY}{check_for_file}'):
+            instance_number += 1
+            suffix = f' {instance_number}'
+            check_for_file = f'{CURRENT_LOG_FILE}{suffix}.txt'
+        CURRENT_LOG_FILE = check_for_file
+
+        Print(f'Current log file {CURRENT_LOG_FILE}')
+
     x, y, w, h = BOUNTY_LOCATION_ON_SCREEN
+
     Print(f'Will be reading pixel coordinates: {x}x {y}y {w}w {h}h')
     Print(f'Showing capture rectangle on screen: {DRAW_RECTANGLE_AROUND_CAPTURE}')
+    Print(f'Log everything to files: {LOG_EVERYTHING_TO_FILE}')
 
     if DRAW_RECTANGLE_AROUND_CAPTURE:
         threading.Thread(target=ThreadShowCaptureRectangle).start()
@@ -158,11 +188,6 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as e:
-        log_filename = datetime.now().strftime("%m-%d-%Y %H-%M-%S")
         error_string = traceback.format_exc()
-        if not os.path.exists(LOGS_DIRECTORY):
-            os.mkdir(LOGS_DIRECTORY)
-        with open(f'{LOGS_DIRECTORY}{log_filename}', 'w') as log_file:
-            log_file.write(error_string)
-        Print(f'An error has occurred: {e}\n{error_string}')
+        Print(f'An error has occurred: {e}\nLog written to {CURRENT_LOG_FILE}\n{error_string}')
         os.system('pause')

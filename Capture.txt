@@ -7,3 +7,7 @@
 # Show capture box: state
 # Can be true of false, helps to see where the app is capturing to detect bounty
 false
+
+# Log your bounties: state
+# Can be true or false, helps to keep track of when your bounties were updated
+false
