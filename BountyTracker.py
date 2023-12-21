@@ -29,6 +29,7 @@ CURRENT_LOG_FILE = f'{datetime.now().strftime("%m-%d-%Y %H-%M-%S")}'
 BOUNTY_LOCATION_ON_SCREEN: tuple = None
 DRAW_RECTANGLE_AROUND_CAPTURE: bool = None
 LOG_EVERYTHING_TO_FILE: bool = None
+SHOW_DISCORD_ACTIVITY: bool = None
 
 
 def Print(text) -> None:
@@ -63,6 +64,14 @@ def PickNewMessage() -> None:
 
 def UpdateBounty(bounty: int, update_just_message: bool) -> None:
     global BOUNTY_TIMESTAMP
+    if not update_just_message:
+        BOUNTY_TIMESTAMP = int(time())
+    bounty_timestamp = BOUNTY_TIMESTAMP
+    with open(SAVE_FILE, 'w') as update_file:
+        update_file.write(f'{bounty}\n{bounty_timestamp}')
+
+    if not SHOW_DISCORD_ACTIVITY:
+        return
 
     amount = None
     if CURRENT_FUN_MESSAGE.item_price > 0:
@@ -86,19 +95,12 @@ def UpdateBounty(bounty: int, update_just_message: bool) -> None:
     details_text = f'Current bounty: ${bounty:,}'
     image_text = f'Dead bounty: ${round(bounty * 0.4):,}'
 
-    if not update_just_message:
-        BOUNTY_TIMESTAMP = int(time())
-    bounty_timestamp = BOUNTY_TIMESTAMP
-
     image_kwargs = (
         {'small_image': CURRENT_FUN_MESSAGE.icon_key, 'small_text': image_text},
         {'large_image': CURRENT_FUN_MESSAGE.icon_key, 'large_text': image_text}
     )[CURRENT_FUN_MESSAGE.image_size]
-    RICH_PRESENCE.update(details=details_text, state=state_text, start=bounty_timestamp, **image_kwargs)
 
-    if not update_just_message:
-        with open(SAVE_FILE, 'w') as update_file:
-            update_file.write(f'{bounty}\n{bounty_timestamp}')
+    RICH_PRESENCE.update(details=details_text, state=state_text, start=bounty_timestamp, **image_kwargs)
 
 
 def LoadBounty() -> None:
@@ -119,6 +121,7 @@ def main() -> None:
     global BOUNTY_LOCATION_ON_SCREEN, \
         DRAW_RECTANGLE_AROUND_CAPTURE, \
         LOG_EVERYTHING_TO_FILE, \
+        SHOW_DISCORD_ACTIVITY, \
         CURRENT_LOG_FILE, \
         RICH_PRESENCE, \
         CURRENT_BOUNTY, \
@@ -128,11 +131,12 @@ def main() -> None:
         capture_options = [line for line in capture_file.read().splitlines(keepends=False)
                            if line and not line.startswith('#')]
 
-    num_capture_options = 3
+    num_capture_options = 4
     if len(capture_options) == num_capture_options:
         BOUNTY_LOCATION_ON_SCREEN = [int(param) for param in capture_options[0].split(',')]
         DRAW_RECTANGLE_AROUND_CAPTURE = capture_options[1].lower() == 'true'
         LOG_EVERYTHING_TO_FILE = capture_options[2].lower() == 'true'
+        SHOW_DISCORD_ACTIVITY = capture_options[3].lower() == 'true'
     else:
         raise ValueError(f'Capture.txt options must match {num_capture_options}, found: {capture_options}')
 
@@ -153,6 +157,7 @@ def main() -> None:
     Print(f'Will be reading pixel coordinates: {x}x {y}y {w}w {h}h')
     Print(f'Showing capture rectangle on screen: {DRAW_RECTANGLE_AROUND_CAPTURE}')
     Print(f'Log everything to files: {LOG_EVERYTHING_TO_FILE}')
+    Print(f'Show activity on discord: {SHOW_DISCORD_ACTIVITY}')
 
     if DRAW_RECTANGLE_AROUND_CAPTURE:
         threading.Thread(target=ThreadShowCaptureRectangle).start()
@@ -160,9 +165,10 @@ def main() -> None:
     bounty_regular_expression = re.compile(r'\$\d+\sBounty')
     LoadBounty()
 
-    RICH_PRESENCE = Presence(str(APPLICATION_ID))
-    RICH_PRESENCE.connect()
-    Print(f'Connected to application {APPLICATION_ID}')
+    if SHOW_DISCORD_ACTIVITY:
+        RICH_PRESENCE = Presence(str(APPLICATION_ID))
+        RICH_PRESENCE.connect()
+        Print(f'Connected to discord application {APPLICATION_ID}')
 
     while True:
         if CURRENT_FUN_MESSAGE is None or time() - LAST_MESSAGE_UPDATE >= CURRENT_FUN_MESSAGE.exposure_time * MESSAGE_DURATION:
