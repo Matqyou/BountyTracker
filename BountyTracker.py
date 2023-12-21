@@ -122,6 +122,7 @@ def main() -> None:
 
     x, y, w, h = BOUNTY_LOCATION_ON_SCREEN
     Print(f'Will be reading pixel coordinates: {x}x {y}y {w}w {h}h')
+    Print(f'Showing capture rectangle on screen: {DRAW_RECTANGLE_AROUND_CAPTURE}')
 
     if DRAW_RECTANGLE_AROUND_CAPTURE:
         threading.Thread(target=ThreadShowCaptureRectangle).start()
