@@ -1,0 +1,4 @@
+pyautogui
+pytesseract
+pypresence
+pywin32
