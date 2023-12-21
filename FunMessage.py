@@ -38,11 +38,11 @@ FUN_MESSAGES = [
     FunMessage("That's like {} paterson{} wuah", 450000, 'patersonnavy', 's'),
     FunMessage("That's like {} spitfire{} $-$", 4250000, 'spitfire', 's'),
     FunMessage("Freddy is watching you D:", 0, 'freddy', 'none', exposure_time=0.5, chance=0.75),
-    FunMessage("???", 0, 'mjolnir', 'none', exposure_time=0.25, chance=0.1),
-    FunMessage("???", 0, 'heavyguitar', 'none', exposure_time=0.25, chance=0.1),
-    FunMessage("???", 0, 'm16', 'none', exposure_time=0.25, chance=0.1),
-    FunMessage("???", 0, 'headsman', 'none', exposure_time=0.25, chance=0.1),
-    FunMessage("???", 0, 'sled', 'none', exposure_time=0.25, chance=0.1),
+    FunMessage("???", 0, 'mjolnir', 'none', exposure_time=0.25, chance=0.2),
+    FunMessage("???", 0, 'heavyguitar', 'none', exposure_time=0.25, chance=0.2),
+    FunMessage("???", 0, 'm16', 'none', exposure_time=0.25, chance=0.2),
+    FunMessage("???", 0, 'headsman', 'none', exposure_time=0.25, chance=0.2),
+    FunMessage("???", 0, 'sled', 'none', exposure_time=0.25, chance=0.2),
 ]
 
 # suffix_info

@@ -10,4 +10,4 @@ false
 
 # Log your bounties: state
 # Can be true or false, helps to keep track of when your bounties were updated
-false
+true
