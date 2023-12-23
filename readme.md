@@ -1,5 +1,5 @@
 # TheWildWest: BountyTracker
-# You MUST have [Tesseract](https://digi.bib.uni-mannheim.de/tesseract/tesseract-ocr-w64-setup-5.3.3.20231005.exe), [Python](https://www.python.org/downloads/) and pip bootstrap to run this window
+# You MUST have [Tesseract](https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&ved=2ahUKEwiz0_vtqKSDAxWjERAIHYegAoMQFnoECA4QAQ&url=https%3A%2F%2Fsourceforge.net%2Fprojects%2Ftesseract-ocr-alt%2Ffiles%2Ftesseract-ocr-setup-3.02.02.exe%2Fdownload&usg=AOvVaw1rP0XHY_cpKegWb85nK_Mo&opi=89978449), [Python](https://www.python.org/downloads/) and pip bootstrap to run this window
 # To install needed libraries just open the Install.bat file I've added, if you don't have pip reinstall python checking the pip bootstrap box
 ## To run open BountyTracker.py
 
