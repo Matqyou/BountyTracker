@@ -1,16 +1,47 @@
-from pypresence import Presence
 from datetime import datetime
 from time import sleep, time
-from WindowsRender import *
 from FunMessage import *
-import pytesseract
-import pyautogui
+import subprocess
 import traceback
 import threading
 import random
+import shutil
+import sys
 import os
 import re
 
+try:
+    from pypresence import Presence
+    from WindowsRender import *
+    import pytesseract
+    import pyautogui
+    import requests
+except ModuleNotFoundError:
+    print('Installing libraries..')
+    os.system(r'pip install -r ..\requirements.txt')
+    print('Installed successfully!')
+    subprocess.call([sys.executable] + sys.argv)
+    exit()
+
+if (found_tesseract_path := shutil.which('tesseract')) is None:
+    tesseract_name = 'tesseract-ocr-setup-3.02.02.exe'
+    tesseract_setup = f'..\\{tesseract_name}'
+    if not os.path.exists(tesseract_setup):
+        print(f'Downloading {tesseract_name}')
+
+        file_url = 'https://downloads.sourceforge.net/project/tesseract-ocr-alt/tesseract-ocr-setup-3.02.02.exe?ts=gAAAAABlh0rv-caw3tHhQdJ2gIURc8E-fr0Wl-k6t-XMqpkjwNWMdXrhmYg5WtV7JvFwlW9jfgSIIoe_6SxZumFImStJkzGcpw%3D%3D&amp;use_mirror=kumisystems&amp;r=https%3A%2F%2Fwww.google.com%2F'
+        response = requests.get(file_url)
+        if response.status_code == 200:
+            with open(tesseract_setup, 'wb') as file:
+                file.write(response.content)
+            print('Download complete!')
+        else:
+            print('Could not download tesseract setup, try again or use link from github')
+    print()
+    print(f'Install {tesseract_name} with the default install location')
+    exit()
+
+pytesseract.pytesseract.tesseract_cmd = found_tesseract_path
 LOGS_DIRECTORY = 'logs/'
 APPLICATION_ID = 1185231216211918900
 SAVE_FILE = 'LastBounty'
@@ -23,9 +54,10 @@ CURRENT_FUN_MESSAGES: list[FunMessage] = []
 CURRENT_FUN_MESSAGE: FunMessage = None
 RICH_PRESENCE: Presence = None
 WINDOWS_RENDER = WindowsRender()
-CURRENT_LOG_FILE = f'{datetime.now().strftime("%m-%d-%Y %H-%M-%S")}'
+CURRENT_LOG_FILE = f'{datetime.now().strftime("%Y-%m-%d %H-%M-%S")}'
 
-# Options read from Capture.txt file
+
+# Options read from Configure.txt file
 BOUNTY_LOCATION_ON_SCREEN: tuple = None
 DRAW_RECTANGLE_AROUND_CAPTURE: bool = None
 LOG_EVERYTHING_TO_FILE: bool = None
@@ -64,11 +96,12 @@ def PickNewMessage() -> None:
 
 def UpdateBounty(bounty: int, update_just_message: bool) -> None:
     global BOUNTY_TIMESTAMP
+
     if not update_just_message:
-        BOUNTY_TIMESTAMP = int(time())
+        with open(SAVE_FILE, 'w') as update_file:
+            BOUNTY_TIMESTAMP = int(time())
+            update_file.write(f'{bounty}\n{BOUNTY_TIMESTAMP}')
     bounty_timestamp = BOUNTY_TIMESTAMP
-    with open(SAVE_FILE, 'w') as update_file:
-        update_file.write(f'{bounty}\n{bounty_timestamp}')
 
     if not SHOW_DISCORD_ACTIVITY:
         return
@@ -127,7 +160,7 @@ def main() -> None:
         CURRENT_BOUNTY, \
         LAST_VALID_BOUNTY
 
-    with open('Capture.txt', 'r') as capture_file:
+    with open('../Configure.txt', 'r') as capture_file:
         capture_options = [line for line in capture_file.read().splitlines(keepends=False)
                            if line and not line.startswith('#')]
 
@@ -138,7 +171,7 @@ def main() -> None:
         LOG_EVERYTHING_TO_FILE = capture_options[2].lower() == 'true'
         SHOW_DISCORD_ACTIVITY = capture_options[3].lower() == 'true'
     else:
-        raise ValueError(f'Capture.txt options must match {num_capture_options}, found: {capture_options}')
+        raise ValueError(f'Configure.txt options must match {num_capture_options}, found: {capture_options}')
 
     if LOG_EVERYTHING_TO_FILE:
         instance_number = 1
@@ -190,11 +223,9 @@ def main() -> None:
 
         sleep(1)
 
-
 if __name__ == '__main__':
     try:
         main()
     except Exception as e:
         error_string = traceback.format_exc()
         Print(f'An error has occurred: {e}\nLog written to {CURRENT_LOG_FILE}\n{error_string}')
-        os.system('pause')
