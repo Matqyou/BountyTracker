@@ -175,8 +175,9 @@ def main() -> None:
             PickNewMessage()
             UpdateBounty(CURRENT_BOUNTY, True)
         screenshot = pyautogui.screenshot(region=BOUNTY_LOCATION_ON_SCREEN).resize((w * 3, h * 3))
+        detected_text = pytesseract.image_to_string(screenshot).strip()
 
-        if detected_text := pytesseract.image_to_string(screenshot).strip():
+        if detected_text:
             dollar_at = detected_text.find('$')
             bounty_at = detected_text.find('Bounty')
             if -1 < dollar_at < bounty_at and bounty_regular_expression.match(detected_text):  # $d Bounty
