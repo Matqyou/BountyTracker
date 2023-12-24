@@ -46,6 +46,7 @@ LOGS_DIRECTORY = 'logs/'
 APPLICATION_ID = 1185231216211918900
 SAVE_FILE = 'LastBounty'
 MESSAGE_DURATION: float = 45
+LAUNCH_TIMESTAMP: int = int(time())
 LAST_MESSAGE_UPDATE: float = time()
 LAST_VALID_BOUNTY: int = None
 CURRENT_BOUNTY: int = None
@@ -75,6 +76,11 @@ def Print(text) -> None:
             log_file.write(out_text)
 
 
+def FormatTime(seconds: float) -> str:
+    seconds = int(seconds)
+    return f'{seconds // 3600:>02}:{(seconds // 60) % 60:>02}:{seconds % 60:>02}'
+
+
 def ShowCaptureRectangle() -> None:
     WINDOWS_RENDER.DrawRectangle(BOUNTY_LOCATION_ON_SCREEN)
 
@@ -101,7 +107,6 @@ def UpdateBounty(bounty: int, update_just_message: bool) -> None:
         with open(SAVE_FILE, 'w') as update_file:
             BOUNTY_TIMESTAMP = int(time())
             update_file.write(f'{bounty}\n{BOUNTY_TIMESTAMP}')
-    bounty_timestamp = BOUNTY_TIMESTAMP
 
     if not SHOW_DISCORD_ACTIVITY:
         return
@@ -126,14 +131,14 @@ def UpdateBounty(bounty: int, update_just_message: bool) -> None:
 
     state_text = CURRENT_FUN_MESSAGE.message_format.format(amount, suffix)
     details_text = f'Current bounty: ${bounty:,}'
-    image_text = f'Dead bounty: ${round(bounty * 0.4):,}'
+    image_text = f'Dead bounty: ${round(bounty * 0.4):,} and it\'s been {FormatTime(time() - BOUNTY_TIMESTAMP)} since last bounty update'
 
     image_kwargs = (
         {'small_image': CURRENT_FUN_MESSAGE.icon_key, 'small_text': image_text},
         {'large_image': CURRENT_FUN_MESSAGE.icon_key, 'large_text': image_text}
     )[CURRENT_FUN_MESSAGE.image_size]
 
-    RICH_PRESENCE.update(details=details_text, state=state_text, start=bounty_timestamp, **image_kwargs)
+    RICH_PRESENCE.update(details=details_text, state=state_text, start=LAUNCH_TIMESTAMP, **image_kwargs)
 
 
 def LoadBounty() -> None:
@@ -148,6 +153,7 @@ def LoadBounty() -> None:
             CURRENT_BOUNTY, BOUNTY_TIMESTAMP = [int(num) for num in f.read().splitlines(keepends=False)]
             LAST_VALID_BOUNTY = CURRENT_BOUNTY
     Print(f'Loaded bounty ${CURRENT_BOUNTY:,}')
+    Print(f'It\'s been {FormatTime(time() - BOUNTY_TIMESTAMP)} since last bounty update')
 
 
 def main() -> None:
