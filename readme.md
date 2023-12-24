@@ -8,7 +8,9 @@ You will need these dependencies:
 but you will have to install it yourself because administrator privilages)
 
 ## Usage
-To run open Start.bat (subject to change, it looks weird)
+To install / run open BountyTracker.exe
+
+To uninstall libraries run Uninstall.exe (you have to uninstall tesseract yourself since it needs admin privilages)
 
 If the app can't detect the bounty try adjusting the capture rectangle in Capture.txt (change the show capture option to true instead of false to help with adjusting)
 
@@ -17,11 +19,12 @@ I also recommend to use an image editor to find the coordinates for your screen
 ![Example1](Source/tutorial/Example1.png)
 
 This app will update your discord presence like this:
- - The time elapsed will show the time since the bounty was last updated even after rebooting the app it will remember the last time this bounty was reached (saves to file LastBounty)
+ - The time you've kept your bounty for is shown when hovering the icon in discord (saves to file LastBounty)
  - The different icons and messages will update periodically
  - Hovering the icon will show your dead bounty which is 40% of your alive bounty
 ![Showcase](Source/tutorial/Showcase.png)
 ![Showcase2](Source/tutorial/Showcase2.png)
+![Showcase3](Source/tutorial/Showcase3.png)
 
 ## Issues
 The app doesn't detect when bounty has been lost because it only reads the specified rectangle where the bounty is on your screen
