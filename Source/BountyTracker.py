@@ -63,6 +63,7 @@ WINDOWS_RENDER = WindowsRender()
 # Options read from Configure.txt file
 CAPTURE_RECTANGLE: tuple = None
 SHOW_CAPTURE_RECTANGLE: bool = None
+CAPTURE_REFRESH_RATE: float = None
 
 
 def FormatTime(seconds: float) -> str:
@@ -155,37 +156,35 @@ def main() -> None:
     global CAPTURE_RECTANGLE, \
         SHOW_CAPTURE_RECTANGLE, \
         SHOW_DISCORD_ACTIVITY, \
+        CAPTURE_REFRESH_RATE, \
         RICH_PRESENCE, \
         CURRENT_BOUNTY, \
         LAST_VALID_BOUNTY
 
-    with open('../Configure.txt', 'r') as capture_file:
-        capture_options = [line for line in capture_file.read().splitlines(keepends=False)
-                           if line and not line.startswith('#')]
+    load_types = {
+        'capture_rectangle': (int, int, int, int),
+        'show_capture_rectangle': bool,
+        'log_to_files': bool,
+        'show_discord_activity': bool,
+        'capture_refresh_rate': float
+    }
+    load_values = SaveTypes.load_file(CONFIGURATION_FILE, load_types)
 
-    num_capture_options = 4
-    if len(capture_options) == num_capture_options:
-        load_types = {
-            'capture_rectangle': (int, int, int, int),
-            'show_capture_rectangle': bool,
-            'log_to_files': bool,
-            'show_discord_activity': bool
-        }
-        load_values = SaveTypes.load_file(CONFIGURATION_FILE, load_types)
-        LOGGER.log('CONFIGURE', f'{load_values}')
-
+    try:
         CAPTURE_RECTANGLE = load_values['capture_rectangle']
         SHOW_CAPTURE_RECTANGLE = load_values['show_capture_rectangle']
         LOGGER.set_log_to_file(load_values['log_to_files'])
         DISCORD_PRESENCE.set_show_discord_activity(load_values['show_discord_activity'])
-    else:
-        raise ValueError(f'Configure.txt options must match {num_capture_options}, found: {capture_options}')
+        CAPTURE_REFRESH_RATE = load_values['capture_refresh_rate']
+    except KeyError:
+        raise KeyError('Some value was missing from the configuration file')
 
     x, y, w, h = CAPTURE_RECTANGLE
     LOGGER.log('CONFIGURE', f'Will be reading pixel coordinates: {x}x {y}y {w}w {h}h')
     LOGGER.log('CONFIGURE', f'Showing capture rectangle on screen: {SHOW_CAPTURE_RECTANGLE}')
     LOGGER.log('CONFIGURE', f'Log everything to files: {LOGGER.log_to_file}')
     LOGGER.log('CONFIGURE', f'Show activity on discord: {DISCORD_PRESENCE.show_discord_activity}')
+    LOGGER.log('CONFIGURE', f'Capture refresh rate delay: {CAPTURE_REFRESH_RATE}s')
 
     if SHOW_CAPTURE_RECTANGLE:
         multiprocessing.Process(target=ShowCaptureRectangle, args=(CAPTURE_RECTANGLE,)).start()
@@ -212,7 +211,7 @@ def main() -> None:
                     LOGGER.log('MAIN', f'New bounty: ${CURRENT_BOUNTY:,} | `{detected_text}`')
                     UpdateBounty(CURRENT_BOUNTY, update_just_message=False)
 
-        sleep(1)
+        sleep(CAPTURE_REFRESH_RATE)
 
 
 if __name__ == '__main__':
