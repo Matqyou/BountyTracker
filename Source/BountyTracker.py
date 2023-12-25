@@ -119,7 +119,6 @@ class BountyTracker:
             self.fun_messages[:] = [msg for msg in BountyTracker.FUN_MESSAGES if random.random() < msg.chance]
         self.fun_message = random.choice(filtered_selection)
         self.fun_messages.remove(self.fun_message)
-        self.logger.log('TEST', f'{self.fun_messages}')
         self.message_update_timestamp = time()
 
     def initialize(self, log_information: bool = False) -> None:
