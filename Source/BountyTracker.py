@@ -11,7 +11,7 @@ import os
 import re
 
 try:
-    from pypresence import Presence
+    from pypresence import Presence, exceptions
     from WindowsRender import *
     import pytesseract
     import pyautogui
@@ -76,6 +76,19 @@ def Print(text) -> None:
             log_file.write(out_text)
 
 
+
+def ConnectPresence() -> bool:
+    try:
+        RICH_PRESENCE.connect()
+        Print(f'Connected to discord application {APPLICATION_ID}')
+        return True
+    except exceptions.DiscordNotFound:
+        global SHOW_DISCORD_ACTIVITY
+        Print('Couldn\'t find discord, switched to offline mode')
+        SHOW_DISCORD_ACTIVITY = False
+    return False
+
+
 def FormatTime(seconds: float) -> str:
     seconds = int(seconds)
     return f'{seconds // 3600:>02}:{(seconds // 60) % 60:>02}:{seconds % 60:>02}'
@@ -101,7 +114,7 @@ def PickNewMessage() -> None:
 
 
 def UpdateBounty(bounty: int, update_just_message: bool) -> None:
-    global BOUNTY_TIMESTAMP
+    global BOUNTY_TIMESTAMP, SHOW_DISCORD_ACTIVITY
 
     if not update_just_message:
         with open(SAVE_FILE, 'w') as update_file:
@@ -138,7 +151,13 @@ def UpdateBounty(bounty: int, update_just_message: bool) -> None:
         {'large_image': CURRENT_FUN_MESSAGE.icon_key, 'large_text': image_text}
     )[CURRENT_FUN_MESSAGE.image_size]
 
-    RICH_PRESENCE.update(details=details_text, state=state_text, start=LAUNCH_TIMESTAMP, **image_kwargs)
+    while True:
+        try:
+            RICH_PRESENCE.update(details=details_text, state=state_text, start=LAUNCH_TIMESTAMP, **image_kwargs)
+            break
+        except exceptions.PipeClosed:
+            Print(f'Discord connection was closed, switched to offline mode')
+            SHOW_DISCORD_ACTIVITY = False
 
 
 def LoadBounty() -> None:
@@ -206,8 +225,7 @@ def main() -> None:
 
     if SHOW_DISCORD_ACTIVITY:
         RICH_PRESENCE = Presence(str(APPLICATION_ID))
-        RICH_PRESENCE.connect()
-        Print(f'Connected to discord application {APPLICATION_ID}')
+        ConnectPresence()
 
     while True:
         if CURRENT_FUN_MESSAGE is None or time() - LAST_MESSAGE_UPDATE >= CURRENT_FUN_MESSAGE.exposure_time * MESSAGE_DURATION:
@@ -228,6 +246,7 @@ def main() -> None:
                     UpdateBounty(CURRENT_BOUNTY, update_just_message=False)
 
         sleep(1)
+
 
 if __name__ == '__main__':
     try:
