@@ -2,17 +2,17 @@
 # It has to capture the full text $123123 Bounty and should check for extra space to the right
 # to compensate for large numbers like 100k+ or even 1mil+
 # I used these numbers for my screen resolution of 1080p without fullscreen v v v v
-64, 106, 156, 27
+capture_rectangle = 64, 106, 156, 27
 
 # Show capture box: state
 # Can be true of false, helps to see where the app is capturing to detect bounty
-false
+show_capture_rectangle = false
 
 # Log your bounties: state
 # Can be true or false, helps to keep track of when your bounties were updated
-true
+log_to_files = true
 
 # Show as discord activity: state
 # Can be true or false, decide if you just want a console that does nothing
 # or share the bounty on your discord account
-true
+show_discord_activity = true

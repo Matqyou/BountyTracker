@@ -1,17 +1,17 @@
+from SaveTypes import SaveTypes
 from time import sleep, time
 from FunMessage import *
 from Launcher import *
+import multiprocessing
 import subprocess
-
-LAUNCHER: Launcher = Launcher()
-LOGGER: Logger = LAUNCHER.logger
-
-import threading
 import random
 import shutil
 import sys
 import os
 import re
+
+LAUNCHER: Launcher = Launcher()
+LOGGER: Logger = LAUNCHER.logger
 
 try:
     from DiscordPresence import DiscordPresence
@@ -48,6 +48,7 @@ pytesseract.pytesseract.tesseract_cmd = found_tesseract_path
 APPLICATION_ID = 1185231216211918900
 DISCORD_PRESENCE: DiscordPresence = DiscordPresence(LOGGER, str(APPLICATION_ID))
 SAVE_FILE = 'LastBounty'
+CONFIGURATION_FILE = '../Configure.txt'
 MESSAGE_DURATION: float = 45
 LAUNCH_TIMESTAMP: int = int(time())
 LAST_MESSAGE_UPDATE: float = time()
@@ -60,8 +61,8 @@ WINDOWS_RENDER = WindowsRender()
 
 
 # Options read from Configure.txt file
-BOUNTY_LOCATION_ON_SCREEN: tuple = None
-DRAW_RECTANGLE_AROUND_CAPTURE: bool = None
+CAPTURE_RECTANGLE: tuple = None
+SHOW_CAPTURE_RECTANGLE: bool = None
 
 
 def FormatTime(seconds: float) -> str:
@@ -69,13 +70,12 @@ def FormatTime(seconds: float) -> str:
     return f'{seconds // 3600:>02}:{(seconds // 60) % 60:>02}:{seconds % 60:>02}'
 
 
-def ShowCaptureRectangle() -> None:
-    WINDOWS_RENDER.DrawRectangle(BOUNTY_LOCATION_ON_SCREEN)
-
-
-def ThreadShowCaptureRectangle() -> None:
-    while True:
-        ShowCaptureRectangle()
+def ShowCaptureRectangle(rectangle: tuple) -> None:
+    try:
+        while True:
+            WINDOWS_RENDER.DrawRectangle(rectangle)
+    except KeyboardInterrupt:
+        pass
 
 
 def PickNewMessage() -> None:
@@ -133,21 +133,27 @@ def UpdateBounty(bounty: int, update_just_message: bool) -> None:
 def LoadBounty() -> None:
     global BOUNTY_TIMESTAMP, CURRENT_BOUNTY, LAST_VALID_BOUNTY
     if not os.path.exists(SAVE_FILE):
-        with open(SAVE_FILE, 'w') as f:
-            CURRENT_BOUNTY = LAST_VALID_BOUNTY = 0
-            BOUNTY_TIMESTAMP = int(time())
-            f.write(f'0\n{BOUNTY_TIMESTAMP}')
+        BOUNTY_TIMESTAMP = int(time())
+        save_values = {
+            'bounty': 0,
+            'bounty_timestamp': BOUNTY_TIMESTAMP
+        }
+        SaveTypes.save_to_file(SAVE_FILE, save_values)
     else:
-        with open(SAVE_FILE, 'r') as f:
-            CURRENT_BOUNTY, BOUNTY_TIMESTAMP = [int(num) for num in f.read().splitlines(keepends=False)]
-            LAST_VALID_BOUNTY = CURRENT_BOUNTY
+        load_types = {
+            'bounty': int,
+            'bounty_timestamp': int
+        }
+        load_values = SaveTypes.load_file(SAVE_FILE, load_types)
+        LAST_VALID_BOUNTY = CURRENT_BOUNTY = load_values['bounty']
+        BOUNTY_TIMESTAMP = load_values['bounty_timestamp']
     LOGGER.log('LOAD', f'Loaded bounty ${CURRENT_BOUNTY:,}')
     LOGGER.log('LOAD', f'It\'s been {FormatTime(time() - BOUNTY_TIMESTAMP)} since last bounty update')
 
 
 def main() -> None:
-    global BOUNTY_LOCATION_ON_SCREEN, \
-        DRAW_RECTANGLE_AROUND_CAPTURE, \
+    global CAPTURE_RECTANGLE, \
+        SHOW_CAPTURE_RECTANGLE, \
         SHOW_DISCORD_ACTIVITY, \
         RICH_PRESENCE, \
         CURRENT_BOUNTY, \
@@ -159,21 +165,30 @@ def main() -> None:
 
     num_capture_options = 4
     if len(capture_options) == num_capture_options:
-        BOUNTY_LOCATION_ON_SCREEN = [int(param) for param in capture_options[0].split(',')]
-        DRAW_RECTANGLE_AROUND_CAPTURE = capture_options[1].lower() == 'true'
-        LOGGER.set_log_to_file(capture_options[2].lower() == 'true')
-        DISCORD_PRESENCE.set_show_discord_activity(capture_options[3].lower() == 'true')
+        load_types = {
+            'capture_rectangle': (int, int, int, int),
+            'show_capture_rectangle': bool,
+            'log_to_files': bool,
+            'show_discord_activity': bool
+        }
+        load_values = SaveTypes.load_file(CONFIGURATION_FILE, load_types)
+        LOGGER.log('CONFIGURE', f'{load_values}')
+
+        CAPTURE_RECTANGLE = load_values['capture_rectangle']
+        SHOW_CAPTURE_RECTANGLE = load_values['show_capture_rectangle']
+        LOGGER.set_log_to_file(load_values['log_to_files'])
+        DISCORD_PRESENCE.set_show_discord_activity(load_values['show_discord_activity'])
     else:
         raise ValueError(f'Configure.txt options must match {num_capture_options}, found: {capture_options}')
 
-    x, y, w, h = BOUNTY_LOCATION_ON_SCREEN
+    x, y, w, h = CAPTURE_RECTANGLE
     LOGGER.log('CONFIGURE', f'Will be reading pixel coordinates: {x}x {y}y {w}w {h}h')
-    LOGGER.log('CONFIGURE', f'Showing capture rectangle on screen: {DRAW_RECTANGLE_AROUND_CAPTURE}')
+    LOGGER.log('CONFIGURE', f'Showing capture rectangle on screen: {SHOW_CAPTURE_RECTANGLE}')
     LOGGER.log('CONFIGURE', f'Log everything to files: {LOGGER.log_to_file}')
     LOGGER.log('CONFIGURE', f'Show activity on discord: {DISCORD_PRESENCE.show_discord_activity}')
 
-    if DRAW_RECTANGLE_AROUND_CAPTURE:
-        threading.Thread(target=ThreadShowCaptureRectangle).start()
+    if SHOW_CAPTURE_RECTANGLE:
+        multiprocessing.Process(target=ShowCaptureRectangle, args=(CAPTURE_RECTANGLE,)).start()
 
     bounty_regular_expression = re.compile(r'\$\d+\sBounty')
     LoadBounty()
@@ -183,7 +198,7 @@ def main() -> None:
         if CURRENT_FUN_MESSAGE is None or time() - LAST_MESSAGE_UPDATE >= CURRENT_FUN_MESSAGE.exposure_time * MESSAGE_DURATION:
             PickNewMessage()
             UpdateBounty(CURRENT_BOUNTY, True)
-        screenshot = pyautogui.screenshot(region=BOUNTY_LOCATION_ON_SCREEN).resize((w * 3, h * 3))
+        screenshot = pyautogui.screenshot(region=CAPTURE_RECTANGLE).resize((w * 3, h * 3))
         detected_text = pytesseract.image_to_string(screenshot).strip()
 
         if detected_text:
@@ -200,4 +215,5 @@ def main() -> None:
         sleep(1)
 
 
-LAUNCHER.launch(main)
+if __name__ == '__main__':
+    LAUNCHER.launch(main)
