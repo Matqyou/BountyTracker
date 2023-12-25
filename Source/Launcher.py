@@ -22,6 +22,8 @@ class Logger:
         except Exception as e:
             error_string = traceback.format_exc()
             self.log('ERROR', f'An error has occurred: {e}\nLog written to {self.log_file_name}\n{error_string}')
+        except KeyboardInterrupt:
+            self.log('EXIT', 'Closed via keyboard interrupt')
 
     def log(self, subsection: str = 'NORMAL', text: str = '') -> None:
         log_text = f'[{datetime.now().strftime("%m/%d/%Y %H:%M:%S")}][{subsection}] {text}\n'
