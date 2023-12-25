@@ -14,7 +14,7 @@ import os
 import re
 
 try:
-    from pypresence import Presence, exceptions
+    from DiscordPresence import DiscordPresence
     from WindowsRender import *
     import pytesseract
     import pyautogui
@@ -46,6 +46,7 @@ if (found_tesseract_path := shutil.which('tesseract')) is None:
 
 pytesseract.pytesseract.tesseract_cmd = found_tesseract_path
 APPLICATION_ID = 1185231216211918900
+DISCORD_PRESENCE: DiscordPresence = DiscordPresence(LOGGER, str(APPLICATION_ID))
 SAVE_FILE = 'LastBounty'
 MESSAGE_DURATION: float = 45
 LAUNCH_TIMESTAMP: int = int(time())
@@ -55,26 +56,12 @@ CURRENT_BOUNTY: int = None
 BOUNTY_TIMESTAMP: float = None
 CURRENT_FUN_MESSAGES: list[FunMessage] = []
 CURRENT_FUN_MESSAGE: FunMessage = None
-RICH_PRESENCE: Presence = None
 WINDOWS_RENDER = WindowsRender()
 
 
 # Options read from Configure.txt file
 BOUNTY_LOCATION_ON_SCREEN: tuple = None
 DRAW_RECTANGLE_AROUND_CAPTURE: bool = None
-SHOW_DISCORD_ACTIVITY: bool = None
-
-
-def ConnectPresence() -> bool:
-    try:
-        RICH_PRESENCE.connect()
-        LOGGER.log('DISCORD', f'Connected to discord application {APPLICATION_ID}')
-        return True
-    except exceptions.DiscordNotFound:
-        global SHOW_DISCORD_ACTIVITY
-        LOGGER.log('DISCORD', 'Couldn\'t find discord, switched to offline mode')
-        SHOW_DISCORD_ACTIVITY = False
-    return False
 
 
 def FormatTime(seconds: float) -> str:
@@ -102,50 +89,45 @@ def PickNewMessage() -> None:
 
 
 def UpdateBounty(bounty: int, update_just_message: bool) -> None:
-    global BOUNTY_TIMESTAMP, SHOW_DISCORD_ACTIVITY
+    global BOUNTY_TIMESTAMP
 
     if not update_just_message:
         with open(SAVE_FILE, 'w') as update_file:
             BOUNTY_TIMESTAMP = int(time())
             update_file.write(f'{bounty}\n{BOUNTY_TIMESTAMP}')
 
-    if not SHOW_DISCORD_ACTIVITY:
-        return
+    if DISCORD_PRESENCE.show_discord_activity:
+        amount = None
+        if CURRENT_FUN_MESSAGE.item_price > 0:
+            if CURRENT_FUN_MESSAGE.item_price > CURRENT_BOUNTY:
+                fraction = bounty / CURRENT_FUN_MESSAGE.item_price * 100
+                percision_places = int(fraction < 10)
+                amount = f'{fraction:.{percision_places}f}% of a'
+                first_letter_index = CURRENT_FUN_MESSAGE.message_format.find('{}') + 3
+                first_letter = CURRENT_FUN_MESSAGE.message_format[first_letter_index:first_letter_index + 1]
+                if first_letter.lower() in 'aeiou':
+                    amount += 'n'
+            else:
+                amount = bounty // CURRENT_FUN_MESSAGE.item_price
 
-    amount = None
-    if CURRENT_FUN_MESSAGE.item_price > 0:
-        if CURRENT_FUN_MESSAGE.item_price > CURRENT_BOUNTY:
-            fraction = bounty / CURRENT_FUN_MESSAGE.item_price * 100
-            percision_places = int(fraction < 10)
-            amount = f'{fraction:.{percision_places}f}% of a'
-            first_letter_index = CURRENT_FUN_MESSAGE.message_format.find('{}') + 3
-            first_letter = CURRENT_FUN_MESSAGE.message_format[first_letter_index:first_letter_index + 1]
-            if first_letter.lower() in 'aeiou':
-                amount += 'n'
-        else:
-            amount = bounty // CURRENT_FUN_MESSAGE.item_price
+        suffix = None
+        if (suffix_info := CURRENT_FUN_MESSAGE.suffix_info) is not None:
+            index = type(amount) == str or amount == 1
+            suffix = suffix_info[index]
 
-    suffix = None
-    if (suffix_info := CURRENT_FUN_MESSAGE.suffix_info) is not None:
-        index = type(amount) == str or amount == 1
-        suffix = suffix_info[index]
+        state_text = CURRENT_FUN_MESSAGE.message_format.format(amount, suffix)
+        details_text = f'Current bounty: ${bounty:,}'
+        image_text = f'Dead bounty: ${round(bounty * 0.4):,} and it\'s been {FormatTime(time() - BOUNTY_TIMESTAMP)} since last bounty update'
 
-    state_text = CURRENT_FUN_MESSAGE.message_format.format(amount, suffix)
-    details_text = f'Current bounty: ${bounty:,}'
-    image_text = f'Dead bounty: ${round(bounty * 0.4):,} and it\'s been {FormatTime(time() - BOUNTY_TIMESTAMP)} since last bounty update'
+        image_kwargs = (
+            {'small_image': CURRENT_FUN_MESSAGE.icon_key, 'small_text': image_text},
+            {'large_image': CURRENT_FUN_MESSAGE.icon_key, 'large_text': image_text}
+        )[CURRENT_FUN_MESSAGE.image_size]
 
-    image_kwargs = (
-        {'small_image': CURRENT_FUN_MESSAGE.icon_key, 'small_text': image_text},
-        {'large_image': CURRENT_FUN_MESSAGE.icon_key, 'large_text': image_text}
-    )[CURRENT_FUN_MESSAGE.image_size]
-
-    while True:
-        try:
-            RICH_PRESENCE.update(details=details_text, state=state_text, start=LAUNCH_TIMESTAMP, **image_kwargs)
-            break
-        except exceptions.PipeClosed:
-            LOGGER.log('DISCORD', f'Discord connection was closed, switched to offline mode')
-            SHOW_DISCORD_ACTIVITY = False
+        DISCORD_PRESENCE.update(state=state_text,
+                                details=details_text,
+                                start=LAUNCHER.startup_timestamp_int,
+                                **image_kwargs)
 
 
 def LoadBounty() -> None:
@@ -180,26 +162,22 @@ def main() -> None:
         BOUNTY_LOCATION_ON_SCREEN = [int(param) for param in capture_options[0].split(',')]
         DRAW_RECTANGLE_AROUND_CAPTURE = capture_options[1].lower() == 'true'
         LOGGER.set_log_to_file(capture_options[2].lower() == 'true')
-        SHOW_DISCORD_ACTIVITY = capture_options[3].lower() == 'true'
+        DISCORD_PRESENCE.set_show_discord_activity(capture_options[3].lower() == 'true')
     else:
         raise ValueError(f'Configure.txt options must match {num_capture_options}, found: {capture_options}')
 
     x, y, w, h = BOUNTY_LOCATION_ON_SCREEN
-
-    LOGGER.log('MAIN', f'Will be reading pixel coordinates: {x}x {y}y {w}w {h}h')
-    LOGGER.log('MAIN', f'Showing capture rectangle on screen: {DRAW_RECTANGLE_AROUND_CAPTURE}')
-    LOGGER.log('MAIN', f'Log everything to files: {LOGGER.log_to_file}')
-    LOGGER.log('MAIN', f'Show activity on discord: {SHOW_DISCORD_ACTIVITY}')
+    LOGGER.log('CONFIGURE', f'Will be reading pixel coordinates: {x}x {y}y {w}w {h}h')
+    LOGGER.log('CONFIGURE', f'Showing capture rectangle on screen: {DRAW_RECTANGLE_AROUND_CAPTURE}')
+    LOGGER.log('CONFIGURE', f'Log everything to files: {LOGGER.log_to_file}')
+    LOGGER.log('CONFIGURE', f'Show activity on discord: {DISCORD_PRESENCE.show_discord_activity}')
 
     if DRAW_RECTANGLE_AROUND_CAPTURE:
         threading.Thread(target=ThreadShowCaptureRectangle).start()
 
     bounty_regular_expression = re.compile(r'\$\d+\sBounty')
     LoadBounty()
-
-    if SHOW_DISCORD_ACTIVITY:
-        RICH_PRESENCE = Presence(str(APPLICATION_ID))
-        ConnectPresence()
+    DISCORD_PRESENCE.connect()
 
     while True:
         if CURRENT_FUN_MESSAGE is None or time() - LAST_MESSAGE_UPDATE >= CURRENT_FUN_MESSAGE.exposure_time * MESSAGE_DURATION:
