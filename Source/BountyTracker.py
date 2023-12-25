@@ -1,7 +1,7 @@
+from FunMessage import FunMessage
 from SaveTypes import SaveTypes
-from FunMessage import *
-from Launcher import *
-from time import sleep
+from Launcher import Launcher, Logger
+from time import sleep, time
 import multiprocessing
 import subprocess
 import random
@@ -47,10 +47,7 @@ elif (tesseract_path := shutil.which('tesseract')) is None:
     LOGGER.log('TESSERACT', f'Install {setup_name} with the default install location')
     exit()
 
-APPLICATION_ID = 1185231216211918900
-SAVE_FILE = 'LastBounty'
-CONFIGURATION_FILE = '../Configure.txt'
-WINDOWS_RENDER = WindowsRender()
+WINDOWS_RENDER: WindowsRender = None  # type: ignore
 
 
 def FormatTime(seconds: float) -> str:
@@ -61,17 +58,39 @@ def FormatTime(seconds: float) -> str:
 def ShowCaptureRectangle(rectangle: tuple) -> None:
     try:
         while True:
-            WINDOWS_RENDER.DrawRectangle(rectangle)
+            WINDOWS_RENDER.draw_rectangle(rectangle)
     except KeyboardInterrupt:
         pass
 
 
 class BountyTracker:
-    APPLICATION_ID: str = str(APPLICATION_ID)
-    SAVE_FILE = SAVE_FILE
-    CONFIGURATION_FILE = CONFIGURATION_FILE
+    APPLICATION_ID: str = str(1185231216211918900)
+    SAVE_FILE = 'LastBounty'
+    CONFIGURATION_FILE = '../Configure.txt'
     MESSAGE_UPDATE_DELAY: float = 45
     BOUNTY_REGEX = re.compile(r'\$\d+\sBounty')
+    FUN_MESSAGES = [
+        FunMessage("That's like {} dynamite >:O", 50, 'dynamite', 'none'),
+        FunMessage("That's like {} frozen axe{} :O", 30000, 'frozenaxe', 's'),
+        FunMessage("That's like {} bank robber{} o_o", 1900, 'goldbar', 'ies/y'),
+        FunMessage("That's like {} wallet{} :P", 350, 'wallet', 's'),
+        FunMessage("That's like {} albino pelt{} wew", 750, 'albinopelt', 's'),
+        FunMessage("That's like {} legendary bison pelt{} :v", 1050, 'legendarybisonpelt', 's'),
+        FunMessage("That's like {} scorched pelt{} :D", 6000, 'scorchedpelt', 's'),
+        FunMessage("That's like {} winchester rifle{} x_x", 7200, 'winchester', 's'),
+        FunMessage("That's like {} mustang horse{} ;$", 10000, 'mustang', 's'),
+        FunMessage("That's like {} cursed volcanic pistol{}", 55000, 'cursedvolcanicpistol', 's'),
+        FunMessage("That's like {} axegonne{} :I", 230000, 'axegonne', 's'),
+        FunMessage("That's like {} lamborghini{} 0_0", 250000, 'lamborghini', 's', chance=0.5),
+        FunMessage("That's like {} paterson{} wuah", 450000, 'patersonnavy', 's'),
+        FunMessage("That's like {} spitfire{} $-$", 4250000, 'spitfire', 's'),
+        FunMessage("Freddy is watching you D:", 0, 'freddy', 'none', exposure_time=0.5, chance=0.75),
+        FunMessage("???", 0, 'mjolnir', 'none', exposure_time=0.25, chance=0.2),
+        FunMessage("???", 0, 'heavyguitar', 'none', exposure_time=0.25, chance=0.2),
+        FunMessage("???", 0, 'm16', 'none', exposure_time=0.25, chance=0.2),
+        FunMessage("???", 0, 'headsman', 'none', exposure_time=0.25, chance=0.2),
+        FunMessage("???", 0, 'sled', 'none', exposure_time=0.25, chance=0.2),
+    ]
 
     def __init__(self, logger: Logger):
         self.logger: Logger = logger
@@ -79,27 +98,28 @@ class BountyTracker:
         self.discord_presence: DiscordPresence = DiscordPresence(logger, BountyTracker.APPLICATION_ID)
         self.message_update_timestamp: float = time()
         self.fun_messages: list[FunMessage] = []
-        self.fun_message: FunMessage = None
-        self.bounty: int = None
-        self.last_bounty: int = None
-        self.bounty_update_timestamp: float = None
+        self.fun_message: FunMessage = None  # type: ignore
+        self.bounty: int = None  # type: ignore
+        self.last_bounty: int = None  # type: ignore
+        self.bounty_update_timestamp: float = None  # type: ignore
 
-        self.capture_rectangle: bool = None
-        self.capture_x: int = None
-        self.capture_y: int = None
-        self.capture_w: int = None
-        self.capture_h: int = None
-        self.show_capture_rectangle: bool = None
-        self.log_to_files: bool = None
-        self.show_discord_activity: bool = None
-        self.capture_refresh_rate: float = None
+        self.capture_rectangle: bool = None  # type: ignore
+        self.capture_x: int = None  # type: ignore
+        self.capture_y: int = None  # type: ignore
+        self.capture_w: int = None  # type: ignore
+        self.capture_h: int = None  # type: ignore
+        self.show_capture_rectangle: bool = None  # type: ignore
+        self.log_to_files: bool = None  # type: ignore
+        self.show_discord_activity: bool = None  # type: ignore
+        self.capture_refresh_rate: float = None  # type: ignore
 
     def pick_new_fun_message(self) -> None:
         while not (filtered_selection := [fun_message for fun_message in self.fun_messages]):
             # self.fun_messages.clear()
-            self.fun_messages[:] = [msg for msg in FUN_MESSAGES if random.random() < msg.chance]
+            self.fun_messages[:] = [msg for msg in BountyTracker.FUN_MESSAGES if random.random() < msg.chance]
         self.fun_message = random.choice(filtered_selection)
         self.fun_messages.remove(self.fun_message)
+        self.logger.log('TEST', f'{self.fun_messages}')
         self.message_update_timestamp = time()
 
     def initialize(self, log_information: bool = False) -> None:
@@ -110,6 +130,8 @@ class BountyTracker:
             self.set_configuration('show_discord_activity', self.discord_presence.connect(), log_information)
 
         if self.show_capture_rectangle:
+            global WINDOWS_RENDER
+            WINDOWS_RENDER = WindowsRender()
             multiprocessing.Process(target=ShowCaptureRectangle, args=(self.capture_rectangle,)).start()
 
     def load_configuration(self, log_information: bool) -> None:
@@ -139,13 +161,13 @@ class BountyTracker:
                 'bounty': 0,
                 'bounty_timestamp': self.bounty_update_timestamp
             }
-            SaveTypes.save_to_file(SAVE_FILE, save_values)
+            SaveTypes.save_to_file(BountyTracker.SAVE_FILE, save_values)
         else:
             load_types = {
                 'bounty': int,
                 'bounty_timestamp': int
             }
-            load_values = SaveTypes.load_file(SAVE_FILE, load_types)
+            load_values = SaveTypes.load_file(BountyTracker.SAVE_FILE, load_types)
             self.last_bounty = self.bounty = load_values['bounty']
             self.bounty_update_timestamp = load_values['bounty_timestamp']
 
@@ -160,7 +182,7 @@ class BountyTracker:
             'bounty': self.bounty,
             'bounty_timestamp': self.bounty_update_timestamp
         }
-        SaveTypes.save_to_file(SAVE_FILE, save_values)
+        SaveTypes.save_to_file(BountyTracker.SAVE_FILE, save_values)
 
     def update_presence(self) -> None:
         if not self.show_discord_activity:

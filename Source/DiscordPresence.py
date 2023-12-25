@@ -10,6 +10,7 @@ class DiscordPresence:
         self.application_id: str = application_id
 
         self.presence: Presence = Presence(application_id)
+        self.show_discord_activity: bool = False
 
     def connect(self) -> bool:
         try:
