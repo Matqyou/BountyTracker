@@ -1,8 +1,11 @@
-from datetime import datetime
 from time import sleep, time
 from FunMessage import *
+from Launcher import *
 import subprocess
-import traceback
+
+LAUNCHER: Launcher = Launcher()
+LOGGER: Logger = LAUNCHER.logger
+
 import threading
 import random
 import shutil
@@ -17,9 +20,9 @@ try:
     import pyautogui
     import requests
 except ModuleNotFoundError:
-    print('Installing libraries..')
+    LOGGER.log('LIBRARIES', 'Installing libraries..')
     os.system(r'pip install -r ..\requirements.txt')
-    print('Installed successfully!')
+    LOGGER.log('LIBRARIES', 'Installed successfully!')
     subprocess.call([sys.executable] + sys.argv)
     exit()
 
@@ -27,22 +30,21 @@ if (found_tesseract_path := shutil.which('tesseract')) is None:
     tesseract_name = 'tesseract-ocr-setup-3.02.02.exe'
     tesseract_setup = f'..\\{tesseract_name}'
     if not os.path.exists(tesseract_setup):
-        print(f'Downloading {tesseract_name}')
+        LOGGER.log('TESSERACT', f'Downloading {tesseract_name}')
 
         file_url = 'https://downloads.sourceforge.net/project/tesseract-ocr-alt/tesseract-ocr-setup-3.02.02.exe?ts=gAAAAABlh0rv-caw3tHhQdJ2gIURc8E-fr0Wl-k6t-XMqpkjwNWMdXrhmYg5WtV7JvFwlW9jfgSIIoe_6SxZumFImStJkzGcpw%3D%3D&amp;use_mirror=kumisystems&amp;r=https%3A%2F%2Fwww.google.com%2F'
         response = requests.get(file_url)
         if response.status_code == 200:
             with open(tesseract_setup, 'wb') as file:
                 file.write(response.content)
-            print('Download complete!')
+            LOGGER.log('TESSERACT', 'Download complete!')
         else:
-            print('Could not download tesseract setup, try again or use link from github')
-    print()
-    print(f'Install {tesseract_name} with the default install location')
+            LOGGER.log('TESSERACT', 'Could not download tesseract setup, try again or use link from github')
+    LOGGER.log()
+    LOGGER.log('TESSERACT', f'Install {tesseract_name} with the default install location')
     exit()
 
 pytesseract.pytesseract.tesseract_cmd = found_tesseract_path
-LOGS_DIRECTORY = 'logs/'
 APPLICATION_ID = 1185231216211918900
 SAVE_FILE = 'LastBounty'
 MESSAGE_DURATION: float = 45
@@ -55,36 +57,22 @@ CURRENT_FUN_MESSAGES: list[FunMessage] = []
 CURRENT_FUN_MESSAGE: FunMessage = None
 RICH_PRESENCE: Presence = None
 WINDOWS_RENDER = WindowsRender()
-CURRENT_LOG_FILE = f'{datetime.now().strftime("%Y-%m-%d %H-%M-%S")}'
 
 
 # Options read from Configure.txt file
 BOUNTY_LOCATION_ON_SCREEN: tuple = None
 DRAW_RECTANGLE_AROUND_CAPTURE: bool = None
-LOG_EVERYTHING_TO_FILE: bool = None
 SHOW_DISCORD_ACTIVITY: bool = None
-
-
-def Print(text) -> None:
-    out_text = f'[{datetime.now().strftime("%m/%d/%Y %H:%M:%S")}] {text}\n'
-    print(out_text, end='')
-
-    if LOG_EVERYTHING_TO_FILE:
-        if not os.path.exists(LOGS_DIRECTORY):
-            os.mkdir(LOGS_DIRECTORY)
-        with open(f'{LOGS_DIRECTORY}{CURRENT_LOG_FILE}', 'a') as log_file:
-            log_file.write(out_text)
-
 
 
 def ConnectPresence() -> bool:
     try:
         RICH_PRESENCE.connect()
-        Print(f'Connected to discord application {APPLICATION_ID}')
+        LOGGER.log('DISCORD', f'Connected to discord application {APPLICATION_ID}')
         return True
     except exceptions.DiscordNotFound:
         global SHOW_DISCORD_ACTIVITY
-        Print('Couldn\'t find discord, switched to offline mode')
+        LOGGER.log('DISCORD', 'Couldn\'t find discord, switched to offline mode')
         SHOW_DISCORD_ACTIVITY = False
     return False
 
@@ -156,7 +144,7 @@ def UpdateBounty(bounty: int, update_just_message: bool) -> None:
             RICH_PRESENCE.update(details=details_text, state=state_text, start=LAUNCH_TIMESTAMP, **image_kwargs)
             break
         except exceptions.PipeClosed:
-            Print(f'Discord connection was closed, switched to offline mode')
+            LOGGER.log('DISCORD', f'Discord connection was closed, switched to offline mode')
             SHOW_DISCORD_ACTIVITY = False
 
 
@@ -171,16 +159,14 @@ def LoadBounty() -> None:
         with open(SAVE_FILE, 'r') as f:
             CURRENT_BOUNTY, BOUNTY_TIMESTAMP = [int(num) for num in f.read().splitlines(keepends=False)]
             LAST_VALID_BOUNTY = CURRENT_BOUNTY
-    Print(f'Loaded bounty ${CURRENT_BOUNTY:,}')
-    Print(f'It\'s been {FormatTime(time() - BOUNTY_TIMESTAMP)} since last bounty update')
+    LOGGER.log('LOAD', f'Loaded bounty ${CURRENT_BOUNTY:,}')
+    LOGGER.log('LOAD', f'It\'s been {FormatTime(time() - BOUNTY_TIMESTAMP)} since last bounty update')
 
 
 def main() -> None:
     global BOUNTY_LOCATION_ON_SCREEN, \
         DRAW_RECTANGLE_AROUND_CAPTURE, \
-        LOG_EVERYTHING_TO_FILE, \
         SHOW_DISCORD_ACTIVITY, \
-        CURRENT_LOG_FILE, \
         RICH_PRESENCE, \
         CURRENT_BOUNTY, \
         LAST_VALID_BOUNTY
@@ -193,29 +179,17 @@ def main() -> None:
     if len(capture_options) == num_capture_options:
         BOUNTY_LOCATION_ON_SCREEN = [int(param) for param in capture_options[0].split(',')]
         DRAW_RECTANGLE_AROUND_CAPTURE = capture_options[1].lower() == 'true'
-        LOG_EVERYTHING_TO_FILE = capture_options[2].lower() == 'true'
+        LOGGER.set_log_to_file(capture_options[2].lower() == 'true')
         SHOW_DISCORD_ACTIVITY = capture_options[3].lower() == 'true'
     else:
         raise ValueError(f'Configure.txt options must match {num_capture_options}, found: {capture_options}')
 
-    if LOG_EVERYTHING_TO_FILE:
-        instance_number = 1
-        suffix = ''
-        check_for_file = f'{CURRENT_LOG_FILE}{suffix}.txt'
-        while os.path.exists(f'{LOGS_DIRECTORY}{check_for_file}'):
-            instance_number += 1
-            suffix = f' {instance_number}'
-            check_for_file = f'{CURRENT_LOG_FILE}{suffix}.txt'
-        CURRENT_LOG_FILE = check_for_file
-
-        Print(f'Current log file {CURRENT_LOG_FILE}')
-
     x, y, w, h = BOUNTY_LOCATION_ON_SCREEN
 
-    Print(f'Will be reading pixel coordinates: {x}x {y}y {w}w {h}h')
-    Print(f'Showing capture rectangle on screen: {DRAW_RECTANGLE_AROUND_CAPTURE}')
-    Print(f'Log everything to files: {LOG_EVERYTHING_TO_FILE}')
-    Print(f'Show activity on discord: {SHOW_DISCORD_ACTIVITY}')
+    LOGGER.log('MAIN', f'Will be reading pixel coordinates: {x}x {y}y {w}w {h}h')
+    LOGGER.log('MAIN', f'Showing capture rectangle on screen: {DRAW_RECTANGLE_AROUND_CAPTURE}')
+    LOGGER.log('MAIN', f'Log everything to files: {LOGGER.log_to_file}')
+    LOGGER.log('MAIN', f'Show activity on discord: {SHOW_DISCORD_ACTIVITY}')
 
     if DRAW_RECTANGLE_AROUND_CAPTURE:
         threading.Thread(target=ThreadShowCaptureRectangle).start()
@@ -242,15 +216,10 @@ def main() -> None:
                 CURRENT_BOUNTY = int(CURRENT_BOUNTY)
                 if LAST_VALID_BOUNTY != CURRENT_BOUNTY:
                     LAST_VALID_BOUNTY = CURRENT_BOUNTY
-                    Print(f'New bounty: ${CURRENT_BOUNTY:,} | `{detected_text}`')
+                    LOGGER.log('MAIN', f'New bounty: ${CURRENT_BOUNTY:,} | `{detected_text}`')
                     UpdateBounty(CURRENT_BOUNTY, update_just_message=False)
 
         sleep(1)
 
 
-if __name__ == '__main__':
-    try:
-        main()
-    except Exception as e:
-        error_string = traceback.format_exc()
-        Print(f'An error has occurred: {e}\nLog written to {CURRENT_LOG_FILE}\n{error_string}')
+LAUNCHER.launch(main)
