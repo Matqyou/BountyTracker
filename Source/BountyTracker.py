@@ -1,7 +1,7 @@
+from time import sleep, time, perf_counter
+from Launcher import Launcher, Logger
 from FunMessage import FunMessage
 from SaveTypes import SaveTypes
-from Launcher import Launcher, Logger
-from time import sleep, time
 import multiprocessing
 import subprocess
 import random
@@ -15,13 +15,13 @@ LOGGER: Logger = LAUNCHER.logger
 
 try:
     from DiscordPresence import DiscordPresence
-    from WindowsRender import *
+    from WindowsRender import WindowsRender
     import pytesseract
     import pyautogui
     import requests
 except ModuleNotFoundError:
     LOGGER.log('LIBRARIES', 'Installing libraries..')
-    os.system(r'pip install -r ..\requirements.txt')
+    subprocess.call(['pip', 'install', '-r', '..\\requirements.txt'])
     LOGGER.log('LIBRARIES', 'Installed successfully!')
     subprocess.call([sys.executable] + sys.argv)
     exit()
@@ -115,7 +115,6 @@ class BountyTracker:
 
     def pick_new_fun_message(self) -> None:
         while not (filtered_selection := [fun_message for fun_message in self.fun_messages]):
-            # self.fun_messages.clear()
             self.fun_messages[:] = [msg for msg in BountyTracker.FUN_MESSAGES if random.random() < msg.chance]
         self.fun_message = random.choice(filtered_selection)
         self.fun_messages.remove(self.fun_message)
@@ -220,6 +219,7 @@ class BountyTracker:
                                      **image_kwargs)
 
     def run(self) -> None:
+        cycle_start = perf_counter()
         while True:
             if self.fun_message is None or time() - self.message_update_timestamp >= self.fun_message.exposure_time * BountyTracker.MESSAGE_UPDATE_DELAY:
                 self.pick_new_fun_message()
@@ -239,7 +239,9 @@ class BountyTracker:
                         self.update_bounty(detected_bounty)
                         self.update_presence()
 
-            sleep(self.capture_refresh_rate)
+            if (elapsed := (perf_counter() - cycle_start)) < self.capture_refresh_rate:
+                sleep(self.capture_refresh_rate - elapsed)
+                cycle_start = perf_counter()
 
 
 def main() -> None:
