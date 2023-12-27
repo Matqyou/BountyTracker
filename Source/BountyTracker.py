@@ -154,16 +154,17 @@ class BountyTracker:
 
     def load_bounty(self, log_information: bool) -> None:
         if not os.path.exists(BountyTracker.SAVE_FILE):
+            self.last_bounty = self.bounty = 0
             self.bounty_update_timestamp = int(time())
             save_values = {
-                'bounty': 0,
+                'bounty': self.bounty,
                 'bounty_timestamp': self.bounty_update_timestamp
             }
             SaveTypes.save_to_file(BountyTracker.SAVE_FILE, save_values)
         else:
             load_types = {
                 'bounty': int,
-                'bounty_timestamp': int
+                'bounty_timestamp': float
             }
             load_values = SaveTypes.load_file(BountyTracker.SAVE_FILE, load_types)
             self.last_bounty = self.bounty = load_values['bounty']
