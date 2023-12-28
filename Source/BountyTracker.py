@@ -1,6 +1,6 @@
 from time import sleep, time, perf_counter
+from Display import Display, ItemDisplay
 from Launcher import Launcher, Logger
-from FunMessage import FunMessage
 from SaveTypes import SaveTypes
 import multiprocessing
 import subprocess
@@ -70,26 +70,40 @@ class BountyTracker:
     MESSAGE_UPDATE_DELAY: float = 45
     BOUNTY_REGEX = re.compile(r'\$\d+\sBounty')
     FUN_MESSAGES = [
-        FunMessage("That's like {} dynamite >:O", 50, 'dynamite', 'none'),
-        FunMessage("That's like {} frozen axe{} :O", 30000, 'frozenaxe', 's'),
-        FunMessage("That's like {} bank robber{} o_o", 1900, 'goldbar', 'ies/y'),
-        FunMessage("That's like {} wallet{} :P", 350, 'wallet', 's'),
-        FunMessage("That's like {} albino pelt{} wew", 750, 'albinopelt', 's'),
-        FunMessage("That's like {} legendary bison pelt{} :v", 1050, 'legendarybisonpelt', 's'),
-        FunMessage("That's like {} scorched pelt{} :D", 6000, 'scorchedpelt', 's'),
-        FunMessage("That's like {} winchester rifle{} x_x", 7200, 'winchester', 's'),
-        FunMessage("That's like {} mustang horse{} ;$", 10000, 'mustang', 's'),
-        FunMessage("That's like {} cursed volcanic pistol{}", 55000, 'cursedvolcanicpistol', 's'),
-        FunMessage("That's like {} axegonne{} :I", 230000, 'axegonne', 's'),
-        FunMessage("That's like {} lamborghini{} 0_0", 250000, 'lamborghini', 's', chance=0.5),
-        FunMessage("That's like {} paterson{} wuah", 450000, 'patersonnavy', 's'),
-        FunMessage("That's like {} spitfire{} $-$", 4250000, 'spitfire', 's'),
-        FunMessage("Freddy is watching you D:", 0, 'freddy', 'none', exposure_time=0.5, chance=0.75),
-        FunMessage("???", 0, 'mjolnir', 'none', exposure_time=0.25, chance=0.2),
-        FunMessage("???", 0, 'heavyguitar', 'none', exposure_time=0.25, chance=0.2),
-        FunMessage("???", 0, 'm16', 'none', exposure_time=0.25, chance=0.2),
-        FunMessage("???", 0, 'headsman', 'none', exposure_time=0.25, chance=0.2),
-        FunMessage("???", 0, 'sled', 'none', exposure_time=0.25, chance=0.2),
+        ItemDisplay("That's like {} cact{} =_=", 3, 'cactus', 'i/us'),
+        ItemDisplay("That's like {} chair{} :>", 40, 'chair', 's/'),
+        ItemDisplay("That's like {} dynamite >:O", 50, 'dynamite', None),
+        ItemDisplay("That's like {} bear trap{} E-E", 60, 'beartrap', 's/'),
+        ItemDisplay("That's like {} campfire{} :L", 200, 'campfire', 's/'),
+        ItemDisplay("That's like {} lasso{} ;]", 200, 'lasso', 'es/'),
+        ItemDisplay("That's like {} wallet{} :P", 350, 'wallet', 's/'),
+        ItemDisplay("That's like {} albino pelt{} wew", 750, 'albinopelt', 's/'),
+        ItemDisplay("That's like {} shovel{} ._.", 800, 'shovel', 's/'),
+        ItemDisplay("That's like {} legendary bison pelt{} :v", 1050, 'legendarybisonpelt', 's/'),
+        ItemDisplay("That's like {} bank robber{} o_o", 1900, 'goldbar', 'ies/y'),
+        ItemDisplay("That's like {} thunder log{} xO", 2000, 'thunderstrucklog', 's/'),
+        ItemDisplay("That's like {} thunder cact{} xO", 3000, 'thunderstruckcactus', 'i/us'),
+        ItemDisplay("That's like {} scorched pelt{} :D", 6000, 'scorchedpelt', 's/'),
+        ItemDisplay("That's like {} winchester rifle{} x_x", 7200, 'winchester', 's/'),
+        ItemDisplay("That's like {} mustang horse{} ;$", 10000, 'mustang', 's/'),
+        ItemDisplay("That's like {} frozen axe{} :O", 30000, 'frozenaxe', 's/'),
+        ItemDisplay("That's like {} cursed volcanic pistol{}", 55000, 'cursedvolcanicpistol', 's/'),
+        ItemDisplay("That's like {} kukri{}", 90000, 'kukri', 's/'),
+        ItemDisplay("That's like {} axegonne{} :I", 230000, 'axegonne', 's/'),
+        ItemDisplay("That's like {} lamborghini{} 0_0", 250000, 'lamborghini', 's/', chance=0.5),
+        ItemDisplay("That's like {} paterson{} wuah", 450000, 'patersonnavy', 's/'),
+        ItemDisplay("That's like {} spitfire{} $-$", 4250000, 'spitfire', 's/'),
+        Display("What is he looking at..", 'snowman', exposure_time=0.5, chance=0.75),
+        Display("Mmmm tasty..", 'candycane', exposure_time=0.5, chance=0.75),
+        Display("Thanks, Santa! :}", 'rednoserifle', exposure_time=0.5, chance=0.75),
+        Display("That was a nice event..", 'occultblade', exposure_time=0.5, chance=0.75),
+        Display("Lightning! Pew pew..", 'lightningmodel3', exposure_time=0.5, chance=0.75),
+        Display("Freddy is watching you D:", 'freddy', exposure_time=0.5, chance=0.75),
+        Display("???", 'mjolnir', exposure_time=0.25, chance=0.2),
+        Display("???", 'heavyguitar', exposure_time=0.25, chance=0.2),
+        Display("???", 'm16', exposure_time=0.25, chance=0.2),
+        Display("???", 'headsman', exposure_time=0.25, chance=0.2),
+        Display("???", 'sled', exposure_time=0.25, chance=0.2),
     ]
 
     def __init__(self, logger: Logger):
@@ -97,8 +111,8 @@ class BountyTracker:
 
         self.discord_presence: DiscordPresence = DiscordPresence(logger, BountyTracker.APPLICATION_ID)
         self.message_update_timestamp: float = time()
-        self.fun_messages: list[FunMessage] = []
-        self.fun_message: FunMessage = None  # type: ignore
+        self.fun_messages: list[Display] = []
+        self.display: Display = None  # type: ignore
         self.bounty: int = None  # type: ignore
         self.last_bounty: int = None  # type: ignore
         self.bounty_update_timestamp: float = None  # type: ignore
@@ -116,8 +130,8 @@ class BountyTracker:
     def pick_new_fun_message(self) -> None:
         while not (filtered_selection := [fun_message for fun_message in self.fun_messages]):
             self.fun_messages[:] = [msg for msg in BountyTracker.FUN_MESSAGES if random.random() < msg.chance]
-        self.fun_message = random.choice(filtered_selection)
-        self.fun_messages.remove(self.fun_message)
+        self.display = random.choice(filtered_selection)
+        self.fun_messages.remove(self.display)
         self.message_update_timestamp = time()
 
     def initialize(self, log_information: bool = False) -> None:
@@ -187,32 +201,20 @@ class BountyTracker:
         if not self.show_discord_activity:
             return
 
-        amount = None
-        if self.fun_message.item_price > 0:
-            if self.fun_message.item_price > self.bounty:
-                fraction = self.bounty / self.fun_message.item_price * 100
-                percision_places = int(fraction < 10)
-                amount = f'{fraction:.{percision_places}f}% of a'
-                first_letter_index = self.fun_message.message_format.find('{}') + 3
-                first_letter = self.fun_message.message_format[first_letter_index:first_letter_index + 1]
-                if first_letter.lower() in 'aeiou':
-                    amount += 'n'
-            else:
-                amount = self.bounty // self.fun_message.item_price
+        state_text = None
+        if self.display.display_type == 0:
+            state_text = self.display.message_format
+        elif self.display.display_type == 1:
+            item_display: ItemDisplay = self.display  # type: ignore
+            state_text = item_display.generate_text(self.bounty)
 
-        suffix = None
-        if (suffix_info := self.fun_message.suffix_info) is not None:
-            index = type(amount) == str or amount == 1
-            suffix = suffix_info[index]
-
-        state_text = self.fun_message.message_format.format(amount, suffix)
         details_text = f'Current bounty: ${self.bounty:,}'
         image_text = f'Dead bounty: ${round(self.bounty * 0.4):,} and it\'s been {FormatTime(time() - self.bounty_update_timestamp)} since last bounty update'
 
         image_kwargs = (
-            {'small_image': self.fun_message.icon_key, 'small_text': image_text},
-            {'large_image': self.fun_message.icon_key, 'large_text': image_text}
-        )[self.fun_message.image_size]
+            {'small_image': self.display.icon_key, 'small_text': image_text},
+            {'large_image': self.display.icon_key, 'large_text': image_text}
+        )[self.display.image_size]
 
         self.discord_presence.update(state=state_text,
                                      details=details_text,
@@ -222,7 +224,7 @@ class BountyTracker:
     def run(self) -> None:
         cycle_start = perf_counter()
         while True:
-            if self.fun_message is None or time() - self.message_update_timestamp >= self.fun_message.exposure_time * BountyTracker.MESSAGE_UPDATE_DELAY:
+            if self.display is None or time() - self.message_update_timestamp >= self.display.exposure_time * BountyTracker.MESSAGE_UPDATE_DELAY:
                 self.pick_new_fun_message()
                 self.update_presence()
             screenshot = pyautogui.screenshot(region=self.capture_rectangle).resize((self.capture_w * 3, self.capture_h * 3))
