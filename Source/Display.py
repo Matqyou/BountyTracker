@@ -1,5 +1,6 @@
 IMAGE_SIZES = ['small', 'large']
 
+
 class Display:
     def __init__(self, message_format: str,
                  icon_key: str = None,

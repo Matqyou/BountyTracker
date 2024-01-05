@@ -16,10 +16,3 @@ log_to_files = true
 # Can be true or false, decide if you just want a console that does nothing
 # or share the bounty on your discord account
 show_discord_activity = true
-
-# Capture refresh rate: float
-# The recommended capture rate depends on your hard drive type
-# If you have an SSD lower refresh rate 1 (second delay) and below is recommended
-# If you have a hard disk drive rate 1 (second delay) and above is recommended
-# The lower number you enter the more lag you are expected to get unless you have a beefy computer
-capture_refresh_rate = 1

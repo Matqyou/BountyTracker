@@ -36,7 +36,7 @@ class SaveTypes:
         if os.path.exists(file):
             with open(file, 'r') as file:
                 content_lines = file.read().splitlines()
-                value_lines = [line_ for line in content_lines if (line_ := line.strip()) and not line_.startswith('#')]
+            value_lines = [line_ for line in content_lines if (line_ := line.strip()) and not line_.startswith('#')]
             load_types_: dict = load_types.copy()
             unparsed_values: list = [tuple(part.strip() for part in line.split('=', 1)) for line in value_lines]
             result: dict = {}
@@ -50,3 +50,24 @@ class SaveTypes:
                     result[keyword] = value_str
             return result
         return {}
+
+    @staticmethod
+    def load_records(file: str, load_types: tuple) -> list:
+        if os.path.exists(file):
+            with open(file, 'r') as file:
+                content_lines = file.read().splitlines()
+            value_lines = [line_ for line in content_lines if (line_ := line.strip()) and not line_.startswith('#')]
+            result = []
+            for line in value_lines:
+                values = [value.strip() for value in line.split(',')]
+                pair = []
+                for value, expected_type in zip(values, load_types):
+                    pair.append(cast_to(value, expected_type))
+                result.append(tuple(pair))
+            return result[::-1]
+        return []
+
+    @staticmethod
+    def append_record(file: str, record: str):
+        with open(file, 'a') as file:
+            file.write(f'{record}\n')

@@ -14,6 +14,7 @@ LAUNCHER: Launcher = Launcher()
 LOGGER: Logger = LAUNCHER.logger
 
 try:
+    from PIL import ImageOps, Image, ImageEnhance, ImageFilter, ImageMath
     from DiscordPresence import DiscordPresence
     from WindowsRender import WindowsRender
     import pytesseract
@@ -47,18 +48,28 @@ elif (tesseract_path := shutil.which('tesseract')) is None:
     LOGGER.log('TESSERACT', f'Install {setup_name} with the default install location')
     exit()
 
-WINDOWS_RENDER: WindowsRender = None  # type: ignore
+
+def format_time_elapsed(seconds: float) -> str:
+    combine_parts = [f'{int(seconds % 60)}s']
+    if seconds >= 60:
+        combine_parts.insert(0, f'{int(seconds // 60) % 60}min')
+    if seconds >= 3600:
+        combine_parts.insert(0, f'{int(seconds // 3600) % 24}hrs')
+    if seconds >= 84000:
+        combine_parts.insert(0, f'{int(seconds // 84000)}days')
+    return ' '.join(combine_parts)
 
 
-def FormatTime(seconds: float) -> str:
+def format_time(seconds: float) -> str:
     seconds = int(seconds)
     return f'{seconds // 3600:>02}:{(seconds // 60) % 60:>02}:{seconds % 60:>02}'
 
 
 def ShowCaptureRectangle(rectangle: tuple) -> None:
+    windows_render: WindowsRender = WindowsRender()
     try:
         while True:
-            WINDOWS_RENDER.draw_rectangle(rectangle)
+            windows_render.draw_rectangle(rectangle)
     except KeyboardInterrupt:
         pass
 
@@ -66,6 +77,7 @@ def ShowCaptureRectangle(rectangle: tuple) -> None:
 class BountyTracker:
     APPLICATION_ID: str = str(1185231216211918900)
     SAVE_FILE = 'LastBounty'
+    HISTORY_FILE = 'BountyHistory'
     CONFIGURATION_FILE = '../Configure.txt'
     MESSAGE_UPDATE_DELAY: float = 45
     BOUNTY_REGEX = re.compile(r'\$\d+\sBounty')
@@ -83,7 +95,7 @@ class BountyTracker:
         ItemDisplay("That's like {} bank robber{} o_o", 1900, 'goldbar', 'ies/y'),
         ItemDisplay("That's like {} thunder log{} xO", 2000, 'thunderstrucklog', 's/'),
         ItemDisplay("That's like {} thunder cact{} xO", 3000, 'thunderstruckcactus', 'i/us'),
-        ItemDisplay("That's like {} scorched pelt{} :D", 6000, 'scorchedpelt', 's/'),
+        ItemDisplay("That's like {} scorched pelt{} :D", 4000, 'scorchedpelt', 's/'),
         ItemDisplay("That's like {} winchester rifle{} x_x", 7200, 'winchester', 's/'),
         ItemDisplay("That's like {} mustang horse{} ;$", 10000, 'mustang', 's/'),
         ItemDisplay("That's like {} frozen axe{} :O", 30000, 'frozenaxe', 's/'),
@@ -112,10 +124,13 @@ class BountyTracker:
         self.discord_presence: DiscordPresence = DiscordPresence(logger, BountyTracker.APPLICATION_ID)
         self.message_update_timestamp: float = time()
         self.fun_messages: list[Display] = []
+        self.history: list[tuple] = []
+        self.detected_queue: list[int] = []
         self.display: Display = None  # type: ignore
         self.bounty: int = None  # type: ignore
         self.last_bounty: int = None  # type: ignore
         self.bounty_update_timestamp: float = None  # type: ignore
+        self.screenshot: Image = None  # type: ignore
 
         self.capture_rectangle: bool = None  # type: ignore
         self.capture_x: int = None  # type: ignore
@@ -125,7 +140,7 @@ class BountyTracker:
         self.show_capture_rectangle: bool = None  # type: ignore
         self.log_to_files: bool = None  # type: ignore
         self.show_discord_activity: bool = None  # type: ignore
-        self.capture_refresh_rate: float = None  # type: ignore
+        self.capture_refresh_rate: float = 1.5
 
     def pick_new_fun_message(self) -> None:
         while not (filtered_selection := [fun_message for fun_message in self.fun_messages]):
@@ -137,14 +152,44 @@ class BountyTracker:
     def initialize(self, log_information: bool = False) -> None:
         self.load_configuration(log_information)
         self.load_bounty(log_information)
+        self.load_tracking(log_information)
+
+        if log_information:
+            past_hour = self.bounty_gained_in_past_hour()
+            self.logger.log('HISTORY', f'Bounty gained in the past hour ${past_hour}')
+
+        if self.show_capture_rectangle:
+            multiprocessing.Process(target=ShowCaptureRectangle, args=(self.capture_rectangle,)).start()
 
         if self.show_discord_activity:
             self.set_configuration('show_discord_activity', self.discord_presence.connect(), log_information)
 
-        if self.show_capture_rectangle:
-            global WINDOWS_RENDER
-            WINDOWS_RENDER = WindowsRender()
-            multiprocessing.Process(target=ShowCaptureRectangle, args=(self.capture_rectangle,)).start()
+    def bounty_gained_in_past_hour(self):
+        past_hour = time() - 3600
+        amount = 0
+        last_record = None
+        for record in self.history:
+            bounty_timestamp, bounty = record
+            if last_record is not None:
+                l_bounty_timestamp, l_bounty = last_record
+                bounty_difference = l_bounty - bounty
+                if l_bounty_timestamp < past_hour:
+                    break
+                amount += bounty_difference
+            last_record = record
+        return amount
+
+    def load_tracking(self, log_information: bool) -> None:
+        if not os.path.exists(BountyTracker.HISTORY_FILE):
+            with open(BountyTracker.HISTORY_FILE, 'w') as tracking_file:
+                tracking_file.write('')
+            self.history = []
+        else:
+            load_types = (float, int)
+            self.history = SaveTypes.load_records(BountyTracker.HISTORY_FILE, load_types)
+        if log_information:
+            num_records = len(self.history)
+            self.logger.log('HISTORY', f'Loaded {num_records} record{("s", "")[num_records == 1]}')
 
     def load_configuration(self, log_information: bool) -> None:
         load_types = {
@@ -159,6 +204,7 @@ class BountyTracker:
             self.set_configuration(keyword, value, log_information)
         if 'capture_rectangle' in load_values:
             self.capture_x, self.capture_y, self.capture_w, self.capture_h = self.capture_rectangle
+        LAUNCHER.logger.set_log_to_file(self.log_to_files)
 
     def set_configuration(self, keyword: str, value, log_information: bool) -> None:
         if hasattr(self, keyword) and getattr(self, keyword) != value:
@@ -185,8 +231,9 @@ class BountyTracker:
             self.bounty_update_timestamp = load_values['bounty_timestamp']
 
         if log_information:
-            LOGGER.log('LOADBOUNTY', f'Loaded bounty ${self.bounty:,}')
-            LOGGER.log('LOADBOUNTY', f'It\'s been {FormatTime(time() - self.bounty_update_timestamp)} since last bounty update')
+            time_elapsed = format_time(time() - self.bounty_update_timestamp)
+            self.logger.log('LOADBOUNTY', f'Loaded bounty ${self.bounty:,}')
+            self.logger.log('LOADBOUNTY', f'It\'s been {time_elapsed} since last bounty update')
 
     def update_bounty(self, bounty: int):
         self.bounty = bounty
@@ -196,6 +243,8 @@ class BountyTracker:
             'bounty_timestamp': self.bounty_update_timestamp
         }
         SaveTypes.save_to_file(BountyTracker.SAVE_FILE, save_values)
+        SaveTypes.append_record(BountyTracker.HISTORY_FILE, f'{self.bounty_update_timestamp}, {self.bounty}')
+        self.history.insert(0, (self.bounty_update_timestamp, self.bounty))
 
     def update_presence(self) -> None:
         if not self.show_discord_activity:
@@ -209,7 +258,9 @@ class BountyTracker:
             state_text = item_display.generate_text(self.bounty)
 
         details_text = f'Current bounty: ${self.bounty:,}'
-        image_text = f'Dead bounty: ${round(self.bounty * 0.4):,} and it\'s been {FormatTime(time() - self.bounty_update_timestamp)} since last bounty update'
+        image_text = f'Dead bounty: ${round(self.bounty * 0.4):,} ' \
+                     f'last updated {format_time(time() - self.bounty_update_timestamp)} ago. ' \
+                     f'Bounty per hour ${self.bounty_gained_in_past_hour():,}'
 
         image_kwargs = (
             {'small_image': self.display.icon_key, 'small_text': image_text},
@@ -221,26 +272,68 @@ class BountyTracker:
                                      start=LAUNCHER.startup_timestamp_int,
                                      **image_kwargs)
 
+    def process_screenshot(self) -> None:
+        screenshot = pyautogui.screenshot(region=self.capture_rectangle)
+        grayscale_image = ImageOps.grayscale(screenshot)
+        scaled_image = grayscale_image.resize((screenshot.width * 6, screenshot.height * 6), 5)
+        contrast_image = ImageEnhance.Contrast(scaled_image).enhance(1.2)
+
+        threshold = 225
+        binary_mask = contrast_image.point(lambda p: p > threshold and 255)
+        alpha_channel = Image.new("L", contrast_image.size, 255)
+        alpha_channel.paste(binary_mask, (0, 0))
+        threshold_image = contrast_image.convert("RGBA")
+        threshold_image.putalpha(alpha_channel)
+        black_background = Image.new("RGBA", threshold_image.size, (0, 0, 0, 255))
+        self.screenshot = Image.alpha_composite(black_background, threshold_image)
+
+    def process_detected_text(self) -> None:
+        detected_text = pytesseract.image_to_string(self.screenshot).strip()
+        if detected_text:
+            dollar_at = detected_text.find('$')
+            bounty_at = detected_text.find('Bounty')
+            if -1 < dollar_at < bounty_at and BountyTracker.BOUNTY_REGEX.match(detected_text):  # $d Bounty
+                bounty_str = detected_text[dollar_at + 1:bounty_at - 1]
+                detected_bounty = int(bounty_str)
+                if not self.detected_queue or detected_bounty != self.detected_queue[0]:
+                    self.detected_queue.append(detected_bounty)
+                    num_detected = len(self.detected_queue)
+                    if len(self.detected_queue) > 10:
+                        self.detected_queue.pop(0)
+                        num_detected -= 1
+                    average_detected = sum(self.detected_queue) / num_detected
+                    sorted_probable = sorted(self.detected_queue, key=lambda x: abs(x - average_detected - 300))
+                    most_probable = sorted_probable[0]
+                    if self.last_bounty != most_probable:
+                        if self.last_bounty is not None:
+                            raw_difference = most_probable - self.last_bounty
+                            bounty_difference = abs(raw_difference)
+                            sign = ('-', '+')[raw_difference >= 0]
+                        else:
+                            bounty_difference = most_probable
+                            sign = '+'
+                        if self.bounty_update_timestamp is not None:
+                            time_elapsed = format_time_elapsed(time() - self.bounty_update_timestamp)
+                        else:
+                            time_elapsed = '???'
+                        self.logger.log('MAIN', f'Updated bounty ${most_probable:,} / '
+                                                f'{sign}${bounty_difference:,} over {time_elapsed}')
+                        self.last_bounty = most_probable
+                        self.update_bounty(detected_bounty)
+                        self.update_presence()
+                        self.screenshot.save(f'captures/{self.bounty_update_timestamp}.png')
+
     def run(self) -> None:
         cycle_start = perf_counter()
         while True:
-            if self.display is None or time() - self.message_update_timestamp >= self.display.exposure_time * BountyTracker.MESSAGE_UPDATE_DELAY:
+            if self.display is None or \
+                    time() - self.message_update_timestamp >= \
+                    self.display.exposure_time * BountyTracker.MESSAGE_UPDATE_DELAY:
                 self.pick_new_fun_message()
                 self.update_presence()
-            screenshot = pyautogui.screenshot(region=self.capture_rectangle).resize((self.capture_w * 3, self.capture_h * 3))
-            detected_text = pytesseract.image_to_string(screenshot).strip()
 
-            if detected_text:
-                dollar_at = detected_text.find('$')
-                bounty_at = detected_text.find('Bounty')
-                if -1 < dollar_at < bounty_at and BountyTracker.BOUNTY_REGEX.match(detected_text):  # $d Bounty
-                    bounty_str = detected_text[dollar_at + 1:bounty_at - 1]
-                    detected_bounty = int(bounty_str)
-                    if self.last_bounty != detected_bounty:
-                        self.last_bounty = detected_bounty
-                        LOGGER.log('MAIN', f'New bounty: ${detected_bounty:,} | `{detected_text}`')
-                        self.update_bounty(detected_bounty)
-                        self.update_presence()
+            self.process_screenshot()
+            self.process_detected_text()
 
             if (elapsed := (perf_counter() - cycle_start)) < self.capture_refresh_rate:
                 sleep(self.capture_refresh_rate - elapsed)
