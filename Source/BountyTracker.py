@@ -319,7 +319,7 @@ class BountyTracker:
                         self.logger.log('MAIN', f'Updated bounty ${most_probable:,} / '
                                                 f'{sign}${bounty_difference:,} over {time_elapsed}')
                         self.last_bounty = most_probable
-                        self.update_bounty(detected_bounty)
+                        self.update_bounty(most_probable)
                         self.update_presence()
                         self.screenshot.save(f'captures/{self.bounty_update_timestamp}.png')
 
