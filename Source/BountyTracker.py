@@ -3,9 +3,11 @@ from Display import Display, ItemDisplay
 from Launcher import Launcher, Logger
 from SaveTypes import SaveTypes
 import multiprocessing
+import numpy as np
 import subprocess
 import random
 import shutil
+import cv2
 import sys
 import os
 import re
@@ -76,7 +78,6 @@ def ShowCaptureRectangle(rectangle: tuple) -> None:
 
 class BountyTracker:
     APPLICATION_ID: str = str(1185231216211918900)
-    SAVE_FILE = 'LastBounty'
     HISTORY_FILE = 'BountyHistory'
     CONFIGURATION_FILE = '../Configure.txt'
     MESSAGE_UPDATE_DELAY: float = 45
@@ -130,6 +131,7 @@ class BountyTracker:
         self.bounty: int = None  # type: ignore
         self.last_bounty: int = None  # type: ignore
         self.bounty_update_timestamp: float = None  # type: ignore
+        self.raw_screenshot: Image = None  # type: ignore
         self.screenshot: Image = None  # type: ignore
 
         self.capture_rectangle: bool = None  # type: ignore
@@ -140,7 +142,7 @@ class BountyTracker:
         self.show_capture_rectangle: bool = None  # type: ignore
         self.log_to_files: bool = None  # type: ignore
         self.show_discord_activity: bool = None  # type: ignore
-        self.capture_refresh_rate: float = 1.5
+        self.capture_refresh_delay: float = 1.5  # 1.5
 
     def pick_new_fun_message(self) -> None:
         while not (filtered_selection := [fun_message for fun_message in self.fun_messages]):
@@ -151,8 +153,7 @@ class BountyTracker:
 
     def initialize(self, log_information: bool = False) -> None:
         self.load_configuration(log_information)
-        self.load_bounty(log_information)
-        self.load_tracking(log_information)
+        self.load_history(log_information)
 
         if log_information:
             past_hour = self.bounty_gained_in_past_hour()
@@ -179,17 +180,30 @@ class BountyTracker:
             last_record = record
         return amount
 
-    def load_tracking(self, log_information: bool) -> None:
+    def init_history(self) -> None:
+        self.last_bounty = self.bounty = 0
+        self.bounty_update_timestamp = int(time())
+        self.history = [(self.bounty_update_timestamp, self.bounty)]
+        with open(BountyTracker.HISTORY_FILE, 'w') as tracking_file:
+            tracking_file.write(f'{self.bounty_update_timestamp}, {self.bounty}')
+
+    def load_history(self, log_information: bool) -> None:
         if not os.path.exists(BountyTracker.HISTORY_FILE):
-            with open(BountyTracker.HISTORY_FILE, 'w') as tracking_file:
-                tracking_file.write('')
-            self.history = []
+            self.init_history()
         else:
-            load_types = (float, int)
-            self.history = SaveTypes.load_records(BountyTracker.HISTORY_FILE, load_types)
+            self.history = SaveTypes.load_records(BountyTracker.HISTORY_FILE, (float, int))
+
         if log_information:
+            if not len(self.history):
+                self.init_history()
+            else:
+                self.bounty_update_timestamp, self.bounty = self.history[0]
+                self.last_bounty = self.bounty
             num_records = len(self.history)
+            time_elapsed = format_time(time() - self.bounty_update_timestamp)
             self.logger.log('HISTORY', f'Loaded {num_records} record{("s", "")[num_records == 1]}')
+            self.logger.log('HISTORY', f'Loaded bounty ${self.bounty:,}')
+            self.logger.log('HISTORY', f'It\'s been {time_elapsed} since last bounty update')
 
     def load_configuration(self, log_information: bool) -> None:
         load_types = {
@@ -212,28 +226,28 @@ class BountyTracker:
             if log_information:
                 self.logger.log('CONFIGURE', f'{keyword} = {value}')
 
-    def load_bounty(self, log_information: bool) -> None:
-        if not os.path.exists(BountyTracker.SAVE_FILE):
-            self.last_bounty = self.bounty = 0
-            self.bounty_update_timestamp = int(time())
-            save_values = {
-                'bounty': self.bounty,
-                'bounty_timestamp': self.bounty_update_timestamp
-            }
-            SaveTypes.save_to_file(BountyTracker.SAVE_FILE, save_values)
-        else:
-            load_types = {
-                'bounty': int,
-                'bounty_timestamp': float
-            }
-            load_values = SaveTypes.load_file(BountyTracker.SAVE_FILE, load_types)
-            self.last_bounty = self.bounty = load_values['bounty']
-            self.bounty_update_timestamp = load_values['bounty_timestamp']
-
-        if log_information:
-            time_elapsed = format_time(time() - self.bounty_update_timestamp)
-            self.logger.log('LOADBOUNTY', f'Loaded bounty ${self.bounty:,}')
-            self.logger.log('LOADBOUNTY', f'It\'s been {time_elapsed} since last bounty update')
+    # def load_bounty(self, log_information: bool) -> None:  # CHANGE IT TO WORK WITH HISTORY
+    #     if not os.path.exists(BountyTracker.SAVE_FILE):
+    #         self.last_bounty = self.bounty = 0
+    #         self.bounty_update_timestamp = int(time())
+    #         save_values = {
+    #             'bounty': self.bounty,
+    #             'bounty_timestamp': self.bounty_update_timestamp
+    #         }
+    #         SaveTypes.save_to_file(BountyTracker.SAVE_FILE, save_values)
+    #     else:
+    #         load_types = {
+    #             'bounty': int,
+    #             'bounty_timestamp': float
+    #         }
+    #         load_values = SaveTypes.load_file(BountyTracker.SAVE_FILE, load_types)
+    #         self.last_bounty = self.bounty = load_values['bounty']
+    #         self.bounty_update_timestamp = load_values['bounty_timestamp']
+    #
+    #     if log_information:
+    #         time_elapsed = format_time(time() - self.bounty_update_timestamp)
+    #         self.logger.log('LOADBOUNTY', f'Loaded bounty ${self.bounty:,}')
+    #         self.logger.log('LOADBOUNTY', f'It\'s been {time_elapsed} since last bounty update')
 
     def update_bounty(self, bounty: int):
         self.bounty = bounty
@@ -272,20 +286,35 @@ class BountyTracker:
                                      start=LAUNCHER.startup_timestamp_int,
                                      **image_kwargs)
 
-    def process_screenshot(self) -> None:
-        screenshot = pyautogui.screenshot(region=self.capture_rectangle)
-        grayscale_image = ImageOps.grayscale(screenshot)
-        scaled_image = grayscale_image.resize((screenshot.width * 6, screenshot.height * 6), 5)
-        contrast_image = ImageEnhance.Contrast(scaled_image).enhance(1.2)
+    # def process_screenshot(self) -> None:
+    #     self.raw_screenshot = pyautogui.screenshot(region=self.capture_rectangle)
+    #     grayscale_image = ImageOps.grayscale(self.raw_screenshot)
+    #     scaled_image = grayscale_image.resize((self.raw_screenshot.width * 6, self.raw_screenshot.height * 6), 5)
+    #     contrast_image = ImageEnhance.Contrast(scaled_image).enhance(1.2)
+    #
+    #     threshold = 225
+    #     binary_mask = contrast_image.point(lambda p: p > threshold and 255)
+    #     alpha_channel = Image.new("L", contrast_image.size, 255)
+    #     alpha_channel.paste(binary_mask, (0, 0))
+    #     threshold_image = contrast_image.convert("RGBA")
+    #     threshold_image.putalpha(alpha_channel)
+    #     black_background = Image.new("RGBA", threshold_image.size, (0, 0, 0, 255))
+    #     self.screenshot = Image.alpha_composite(black_background, threshold_image)
 
-        threshold = 225
-        binary_mask = contrast_image.point(lambda p: p > threshold and 255)
-        alpha_channel = Image.new("L", contrast_image.size, 255)
-        alpha_channel.paste(binary_mask, (0, 0))
-        threshold_image = contrast_image.convert("RGBA")
-        threshold_image.putalpha(alpha_channel)
-        black_background = Image.new("RGBA", threshold_image.size, (0, 0, 0, 255))
-        self.screenshot = Image.alpha_composite(black_background, threshold_image)
+    def process_screenshot(self) -> None:
+        self.raw_screenshot = pyautogui.screenshot(region=self.capture_rectangle)
+
+        screenshot_copy = self.raw_screenshot.copy()
+        upscaled = screenshot_copy.resize((int(screenshot_copy.width * 3),
+                                           int(screenshot_copy.height * 3)),
+                                          Image.LANCZOS)
+        cv_screenshot = np.array(upscaled)
+        hsv_image = cv2.cvtColor(cv_screenshot, cv2.COLOR_RGB2HSV)
+        white_mask = cv2.inRange(hsv_image, (0, 0, 180), (180, 10, 255))
+        filtered_screenshot = cv2.bitwise_and(hsv_image, hsv_image, mask=white_mask)
+        rgb_image = cv2.cvtColor(filtered_screenshot, cv2.COLOR_HSV2RGB)
+
+        self.screenshot = Image.fromarray(rgb_image)
 
     def process_detected_text(self) -> None:
         detected_text = pytesseract.image_to_string(self.screenshot).strip()
@@ -321,7 +350,13 @@ class BountyTracker:
                         self.last_bounty = most_probable
                         self.update_bounty(most_probable)
                         self.update_presence()
-                        self.screenshot.save(f'captures/{self.bounty_update_timestamp}.png')
+
+                        capture_sample = Image.new('RGB', (max(self.raw_screenshot.width, self.screenshot.width),
+                                                           self.raw_screenshot.height + self.screenshot.height),
+                                                   color=(0, 0, 0))
+                        capture_sample.paste(self.raw_screenshot, (0, 0))
+                        capture_sample.paste(self.screenshot, (0, self.raw_screenshot.height))
+                        capture_sample.save(f'captures/{self.bounty_update_timestamp}.png')
 
     def run(self) -> None:
         cycle_start = perf_counter()
@@ -335,8 +370,8 @@ class BountyTracker:
             self.process_screenshot()
             self.process_detected_text()
 
-            if (elapsed := (perf_counter() - cycle_start)) < self.capture_refresh_rate:
-                sleep(self.capture_refresh_rate - elapsed)
+            if (elapsed := (perf_counter() - cycle_start)) < self.capture_refresh_delay:
+                sleep(self.capture_refresh_delay - elapsed)
                 cycle_start = perf_counter()
 
 

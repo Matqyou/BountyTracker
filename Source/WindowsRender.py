@@ -2,9 +2,9 @@ import win32gui, win32api, win32con
 
 
 class WindowsRender:
-    def __init__(self):
+    def __init__(self, color: tuple = (255, 0, 0)):
         self.device_context = win32gui.GetDC(0)
-        self.pen_color = win32api.RGB(255, 0, 0)
+        self.pen_color = win32api.RGB(*color)
         self.pen = None
 
     def draw_rectangle(self, rect: tuple):
