@@ -252,11 +252,6 @@ class BountyTracker:
     def update_bounty(self, bounty: int):
         self.bounty = bounty
         self.bounty_update_timestamp = time()
-        save_values = {
-            'bounty': self.bounty,
-            'bounty_timestamp': self.bounty_update_timestamp
-        }
-        SaveTypes.save_to_file(BountyTracker.SAVE_FILE, save_values)
         SaveTypes.append_record(BountyTracker.HISTORY_FILE, f'{self.bounty_update_timestamp}, {self.bounty}')
         self.history.insert(0, (self.bounty_update_timestamp, self.bounty))
 
