@@ -3,3 +3,4 @@ pyautogui
 pytesseract
 pypresence
 pywin32
+cv2
