@@ -104,7 +104,7 @@ class BountyTracker:
         ItemDisplay("That's like {} kukri{}", 90000, 'kukri', 's/'),
         ItemDisplay("That's like {} axegonne{} :I", 230000, 'axegonne', 's/'),
         ItemDisplay("That's like {} lamborghini{} 0_0", 250000, 'lamborghini', 's/', chance=0.5),
-        ItemDisplay("That's like {} paterson{} wuah", 450000, 'patersonnavy', 's/'),
+        ItemDisplay("That's like {} paterson{} wuah", 475000, 'patersonnavy', 's/'),
         ItemDisplay("That's like {} spitfire{} $-$", 4250000, 'spitfire', 's/'),
         Display("What is he looking at..", 'snowman', exposure_time=0.5, chance=0.75),
         Display("Mmmm tasty..", 'candycane', exposure_time=0.5, chance=0.75),
@@ -156,8 +156,7 @@ class BountyTracker:
         self.load_history(log_information)
 
         if log_information:
-            past_hour = self.bounty_gained_in_past_hour()
-            self.logger.log('HISTORY', f'Bounty gained in the past hour ${past_hour}')
+            self.logger.log('HISTORY', f'Current hourly bounty rate ${int(self.bounty_hourly(3600)):,}')
 
         if self.show_capture_rectangle:
             multiprocessing.Process(target=ShowCaptureRectangle, args=(self.capture_rectangle,)).start()
@@ -165,20 +164,39 @@ class BountyTracker:
         if self.show_discord_activity:
             self.set_configuration('show_discord_activity', self.discord_presence.connect(), log_information)
 
-    def bounty_gained_in_past_hour(self):
-        past_hour = time() - 3600
+    # def bounty_gained_in_past_hour(self):
+    #     past_hour = time() - 3600
+    #     amount = 0
+    #     last_record = None
+    #     for record in self.history:
+    #         bounty_timestamp, bounty = record
+    #         if last_record is not None:
+    #             l_bounty_timestamp, l_bounty = last_record
+    #             bounty_difference = l_bounty - bounty
+    #             if l_bounty_timestamp < past_hour:
+    #                 break
+    #             amount += bounty_difference
+    #         last_record = record
+    #     return amount
+
+    def bounty_hourly(self, check_how_long_ago: float):
+        right_now = time()
+        past_hour = right_now - check_how_long_ago
         amount = 0
+        time_spent = 0
         last_record = None
         for record in self.history:
             bounty_timestamp, bounty = record
             if last_record is not None:
                 l_bounty_timestamp, l_bounty = last_record
-                bounty_difference = l_bounty - bounty
                 if l_bounty_timestamp < past_hour:
                     break
+                bounty_difference = l_bounty - bounty
                 amount += bounty_difference
+                time_spent = right_now - l_bounty_timestamp
             last_record = record
-        return amount
+        hourly_rate = amount / time_spent * 3600
+        return hourly_rate
 
     def init_history(self) -> None:
         self.last_bounty = self.bounty = 0
@@ -269,7 +287,7 @@ class BountyTracker:
         details_text = f'Current bounty: ${self.bounty:,}'
         image_text = f'Dead bounty: ${round(self.bounty * 0.4):,} ' \
                      f'last updated {format_time(time() - self.bounty_update_timestamp)} ago. ' \
-                     f'Bounty per hour ${self.bounty_gained_in_past_hour():,}'
+                     f'Hourly bounty rate ${int(self.bounty_hourly(3600)):,}'
 
         image_kwargs = (
             {'small_image': self.display.icon_key, 'small_text': image_text},
