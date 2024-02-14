@@ -1,6 +1,7 @@
-requests
-pyautogui
+opencv-python
 pytesseract
 pypresence
+pyautogui
+requests
 pywin32
-opencv-python
+pygame

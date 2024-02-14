@@ -5,6 +5,7 @@ from SaveTypes import SaveTypes
 import multiprocessing
 import numpy as np
 import subprocess
+import threading
 import random
 import shutil
 import sys
@@ -21,6 +22,7 @@ try:
     import pytesseract
     import pyautogui
     import requests
+    import pygame
     import cv2
 except ModuleNotFoundError:
     LOGGER.log('LIBRARIES', 'Installing libraries..')
@@ -80,6 +82,7 @@ class BountyTracker:
     HISTORY_FILE = 'BountyHistory'
     CONFIGURATION_FILE = '../Configure.txt'
     MESSAGE_UPDATE_DELAY: float = 45
+    UPSCALE_SCREENSHOTS: int = 4
     BOUNTY_REGEX = re.compile(r'\$\d+\sBounty')
     FUN_MESSAGES = [
         ItemDisplay("That's like {} cact{} =_=", 3, 'cactus', 'i/us'),
@@ -132,6 +135,7 @@ class BountyTracker:
         self.bounty_update_timestamp: float = None  # type: ignore
         self.raw_screenshot: Image = None  # type: ignore
         self.screenshot: Image = None  # type: ignore
+        self.capture_window: pygame.Surface = None  # type: ignore
 
         self.capture_rectangle: bool = None  # type: ignore
         self.capture_x: int = None  # type: ignore
@@ -141,7 +145,8 @@ class BountyTracker:
         self.show_capture_rectangle: bool = None  # type: ignore
         self.log_to_files: bool = None  # type: ignore
         self.show_discord_activity: bool = None  # type: ignore
-        self.capture_refresh_delay: float = 1.5  # 1.5
+        self.capture_preview: bool = None  # type: ignore
+        self.capture_refresh_delay: float = 1.5
 
     def pick_new_fun_message(self) -> None:
         while not (filtered_selection := [fun_message for fun_message in self.fun_messages]):
@@ -149,6 +154,19 @@ class BountyTracker:
         self.display = random.choice(filtered_selection)
         self.fun_messages.remove(self.display)
         self.message_update_timestamp = time()
+
+    def begin_capture_window(self) -> None:
+        pygame.init()
+        self.capture_window = pygame.display.set_mode((self.capture_rectangle[2],
+                                                       self.capture_rectangle[3]))
+        pygame.display.set_caption('BountyTracker')
+        while True:
+            sleep(0.1)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    self.set_configuration('capture_preview', False, True)
+                    return
 
     def initialize(self, log_information: bool = False) -> None:
         self.load_configuration(log_information)
@@ -162,6 +180,10 @@ class BountyTracker:
 
         if self.show_discord_activity:
             self.set_configuration('show_discord_activity', self.discord_presence.connect(), log_information)
+
+        if self.capture_preview:
+            thread = threading.Thread(target=self.begin_capture_window)
+            thread.start()
 
     # def bounty_gained_in_past_hour(self):
     #     past_hour = time() - 3600
@@ -229,7 +251,7 @@ class BountyTracker:
             'show_capture_rectangle': bool,
             'log_to_files': bool,
             'show_discord_activity': bool,
-            'capture_refresh_rate': float
+            'capture_preview': bool
         }
         load_values = SaveTypes.load_file(self.CONFIGURATION_FILE, load_types)
         for keyword, value in load_values.items():
@@ -318,8 +340,8 @@ class BountyTracker:
         self.raw_screenshot = pyautogui.screenshot(region=self.capture_rectangle)
 
         screenshot_copy = self.raw_screenshot.copy()
-        upscaled = screenshot_copy.resize((int(screenshot_copy.width * 4),
-                                           int(screenshot_copy.height * 4)),
+        upscaled = screenshot_copy.resize((int(screenshot_copy.width * BountyTracker.UPSCALE_SCREENSHOTS),
+                                           int(screenshot_copy.height * BountyTracker.UPSCALE_SCREENSHOTS)),
                                           Image.LANCZOS)
         cv_screenshot = np.array(upscaled)
         hsv_image = cv2.cvtColor(cv_screenshot, cv2.COLOR_RGB2HSV)
@@ -328,6 +350,11 @@ class BountyTracker:
         rgb_image = cv2.cvtColor(filtered_screenshot, cv2.COLOR_HSV2RGB)
 
         self.screenshot = Image.fromarray(rgb_image)
+
+        if self.capture_preview:
+            screenshot_surface = pygame.image.fromstring(self.raw_screenshot.tobytes(), self.raw_screenshot.size, "RGB")
+            self.capture_window.blit(screenshot_surface, (0, 0))
+            pygame.display.update()
 
     def process_detected_text(self) -> None:
         detected_text = pytesseract.image_to_string(self.screenshot).strip()
@@ -389,6 +416,7 @@ class BountyTracker:
 
 
 def main() -> None:
+    os.system('cls')
     bounty_tracker = BountyTracker(LOGGER)
     bounty_tracker.initialize(log_information=True)
     bounty_tracker.run()

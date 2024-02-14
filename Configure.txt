@@ -16,3 +16,7 @@ log_to_files = true
 # Can be true or false, decide if you just want a console that does nothing
 # or share the bounty on your discord account
 show_discord_activity = true
+
+# Show capture preview: state
+# Can be true or false, decide if you want to see the captured area in a new window
+capture_preview = false
