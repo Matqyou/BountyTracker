@@ -4,7 +4,6 @@ import os
 
 
 class DiscordPresence:
-
     def __init__(self, logger: Logger, application_id: str):
         self.logger: Logger = logger
         self.application_id: str = application_id

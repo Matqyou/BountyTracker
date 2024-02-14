@@ -318,8 +318,8 @@ class BountyTracker:
         self.raw_screenshot = pyautogui.screenshot(region=self.capture_rectangle)
 
         screenshot_copy = self.raw_screenshot.copy()
-        upscaled = screenshot_copy.resize((int(screenshot_copy.width * 3),
-                                           int(screenshot_copy.height * 3)),
+        upscaled = screenshot_copy.resize((int(screenshot_copy.width * 4),
+                                           int(screenshot_copy.height * 4)),
                                           Image.LANCZOS)
         cv_screenshot = np.array(upscaled)
         hsv_image = cv2.cvtColor(cv_screenshot, cv2.COLOR_RGB2HSV)
