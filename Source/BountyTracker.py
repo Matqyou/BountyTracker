@@ -195,8 +195,9 @@ class BountyTracker:
                 amount += bounty_difference
                 time_spent = right_now - l_bounty_timestamp
             last_record = record
-        hourly_rate = amount / time_spent * 3600
-        return hourly_rate
+        if time_spent > 0.0:
+            return amount / time_spent * 3600
+        return 0.0
 
     def init_history(self) -> None:
         self.last_bounty = self.bounty = 0
