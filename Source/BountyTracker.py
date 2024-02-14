@@ -7,7 +7,6 @@ import numpy as np
 import subprocess
 import random
 import shutil
-import cv2
 import sys
 import os
 import re
@@ -22,6 +21,7 @@ try:
     import pytesseract
     import pyautogui
     import requests
+    import cv2
 except ModuleNotFoundError:
     LOGGER.log('LIBRARIES', 'Installing libraries..')
     subprocess.call(['pip', 'install', '-r', '..\\requirements.txt'])
@@ -46,7 +46,6 @@ elif (tesseract_path := shutil.which('tesseract')) is None:
             LOGGER.log('TESSERACT', 'Download complete!')
         else:
             LOGGER.log('TESSERACT', 'Could not download tesseract setup, try again or use link from github')
-    LOGGER.log()
     LOGGER.log('TESSERACT', f'Install {setup_name} with the default install location')
     exit()
 
