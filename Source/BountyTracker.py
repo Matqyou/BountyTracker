@@ -83,6 +83,7 @@ class BountyTracker:
     CONFIGURATION_FILE = '../Configure.txt'
     MESSAGE_UPDATE_DELAY: float = 45
     UPSCALE_SCREENSHOTS: int = 4
+    DOWNSCALE_SCREENSHOTS: int = 0.66
     BOUNTY_REGEX = re.compile(r'\$\d+\sBounty')
     FUN_MESSAGES = [
         ItemDisplay("That's like {} cact{} =_=", 3, 'cactus', 'i/us'),
@@ -336,25 +337,36 @@ class BountyTracker:
     #     black_background = Image.new("RGBA", threshold_image.size, (0, 0, 0, 255))
     #     self.screenshot = Image.alpha_composite(black_background, threshold_image)
 
-    def process_screenshot(self) -> None:
-        self.raw_screenshot = pyautogui.screenshot(region=self.capture_rectangle)
+    def process_screenshot(self) -> bool:
+        try:
+            self.raw_screenshot = pyautogui.screenshot(region=self.capture_rectangle)
+        except OSError:
+            self.logger.log('MAIN', 'Failed to take a screenshot (OSError: screen grab failed)')
+            return False
 
-        screenshot_copy = self.raw_screenshot.copy()
-        upscaled = screenshot_copy.resize((int(screenshot_copy.width * BountyTracker.UPSCALE_SCREENSHOTS),
-                                           int(screenshot_copy.height * BountyTracker.UPSCALE_SCREENSHOTS)),
+        capture_pil = self.raw_screenshot.copy()
+        upscaled_pil = capture_pil.resize((int(capture_pil.width * BountyTracker.UPSCALE_SCREENSHOTS),
+                                           int(capture_pil.height * BountyTracker.UPSCALE_SCREENSHOTS)),
                                           Image.LANCZOS)
-        cv_screenshot = np.array(upscaled)
-        hsv_image = cv2.cvtColor(cv_screenshot, cv2.COLOR_RGB2HSV)
-        white_mask = cv2.inRange(hsv_image, (0, 0, 180), (180, 10, 255))
-        filtered_screenshot = cv2.bitwise_and(hsv_image, hsv_image, mask=white_mask)
-        rgb_image = cv2.cvtColor(filtered_screenshot, cv2.COLOR_HSV2RGB)
+        upscaled_image = np.array(upscaled_pil)
+        hsv_image = cv2.cvtColor(upscaled_image, cv2.COLOR_RGB2HSV)
 
-        self.screenshot = Image.fromarray(rgb_image)
+        white_mask = cv2.inRange(hsv_image, (0, 0, 242), (180, 10, 255))
+        processed_image = cv2.bitwise_and(hsv_image, hsv_image, mask=white_mask)
+        dilate_kernel = np.ones((2, 2), np.uint8)
+        dilated_image = cv2.dilate(processed_image, dilate_kernel, iterations=2)
+        rgb_image = cv2.cvtColor(dilated_image, cv2.COLOR_HSV2RGB)
+
+        processed = Image.fromarray(rgb_image)
+        self.screenshot = processed.resize((int(processed.width * BountyTracker.DOWNSCALE_SCREENSHOTS),
+                                            int(processed.height * BountyTracker.DOWNSCALE_SCREENSHOTS)),
+                                           Image.LANCZOS)
 
         if self.capture_preview:
             screenshot_surface = pygame.image.fromstring(self.raw_screenshot.tobytes(), self.raw_screenshot.size, "RGB")
             self.capture_window.blit(screenshot_surface, (0, 0))
             pygame.display.update()
+        return True
 
     def process_detected_text(self) -> None:
         detected_text = pytesseract.image_to_string(self.screenshot).strip()
@@ -407,8 +419,8 @@ class BountyTracker:
                 self.pick_new_fun_message()
                 self.update_presence()
 
-            self.process_screenshot()
-            self.process_detected_text()
+            if self.process_screenshot():
+                self.process_detected_text()
 
             if (elapsed := (perf_counter() - cycle_start)) < self.capture_refresh_delay:
                 sleep(self.capture_refresh_delay - elapsed)
