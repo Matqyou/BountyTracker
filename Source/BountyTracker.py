@@ -83,7 +83,7 @@ class BountyTracker:
     CONFIGURATION_FILE = '../Configure.txt'
     MESSAGE_UPDATE_DELAY: float = 45
     UPSCALE_SCREENSHOTS: int = 4
-    DOWNSCALE_SCREENSHOTS: int = 0.66
+    DOWNSCALE_SCREENSHOTS: int = 0.8
     BOUNTY_REGEX = re.compile(r'\$\d+\sBounty')
     FUN_MESSAGES = [
         ItemDisplay("That's like {} cact{} =_=", 3, 'cactus', 'i/us'),
@@ -360,7 +360,7 @@ class BountyTracker:
         white_mask = cv2.inRange(hsv_image, (0, 0, 242), (180, 10, 255))
         processed_image = cv2.bitwise_and(hsv_image, hsv_image, mask=white_mask)
         dilate_kernel = np.ones((2, 2), np.uint8)
-        dilated_image = cv2.dilate(processed_image, dilate_kernel, iterations=2)
+        dilated_image = cv2.dilate(processed_image, dilate_kernel, iterations=3)
         rgb_image = cv2.cvtColor(dilated_image, cv2.COLOR_HSV2RGB)
 
         processed = Image.fromarray(rgb_image)
