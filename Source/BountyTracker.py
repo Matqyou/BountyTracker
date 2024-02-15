@@ -137,8 +137,10 @@ class BountyTracker:
         self.raw_screenshot: Image = None  # type: ignore
         self.screenshot: Image = None  # type: ignore
         self.capture_window: pygame.Surface = None  # type: ignore
+        self.capture_ready: bool = False
 
-        self.capture_rectangle: bool = None  # type: ignore
+        self.capture_rectangle: tuple = None  # type: ignore
+        self.capture_size: tuple = None  # type: ignore
         self.capture_x: int = None  # type: ignore
         self.capture_y: int = None  # type: ignore
         self.capture_w: int = None  # type: ignore
@@ -147,7 +149,7 @@ class BountyTracker:
         self.log_to_files: bool = None  # type: ignore
         self.show_discord_activity: bool = None  # type: ignore
         self.capture_preview: bool = None  # type: ignore
-        self.capture_refresh_delay: float = 1.5
+        self.capture_refresh_delay: float = None  # type: ignore
 
     def pick_new_fun_message(self) -> None:
         while not (filtered_selection := [fun_message for fun_message in self.fun_messages]):
@@ -158,9 +160,12 @@ class BountyTracker:
 
     def begin_capture_window(self) -> None:
         pygame.init()
-        self.capture_window = pygame.display.set_mode((self.capture_rectangle[2],
-                                                       self.capture_rectangle[3]))
-        pygame.display.set_caption('BountyTracker')
+        icon = pygame.image.load('Icon.png')
+        self.capture_window = pygame.display.set_mode((self.capture_w,
+                                                       self.capture_h))
+        pygame.display.set_icon(icon)
+        pygame.display.set_caption(f'{self.capture_x}x {self.capture_y}y {self.capture_w}w {self.capture_h}h')
+        self.capture_ready = True
         while True:
             sleep(0.1)
             for event in pygame.event.get():
@@ -250,9 +255,10 @@ class BountyTracker:
         load_types = {
             'capture_rectangle': (int, int, int, int),
             'show_capture_rectangle': bool,
+            'capture_refresh_delay': float,
             'log_to_files': bool,
             'show_discord_activity': bool,
-            'capture_preview': bool
+            'capture_preview': bool,
         }
         load_values = SaveTypes.load_file(self.CONFIGURATION_FILE, load_types)
         for keyword, value in load_values.items():
@@ -362,7 +368,7 @@ class BountyTracker:
                                             int(processed.height * BountyTracker.DOWNSCALE_SCREENSHOTS)),
                                            Image.LANCZOS)
 
-        if self.capture_preview:
+        if self.capture_preview and self.capture_ready:
             screenshot_surface = pygame.image.fromstring(self.raw_screenshot.tobytes(), self.raw_screenshot.size, "RGB")
             self.capture_window.blit(screenshot_surface, (0, 0))
             pygame.display.update()

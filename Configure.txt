@@ -8,6 +8,10 @@ capture_rectangle = 64, 106, 156, 27
 # Can be true of false, helps to see where the app is capturing to detect bounty
 show_capture_rectangle = false
 
+# Capture refresh delay: float
+# Can be a number zero or more, sets the delay in seconds between each screenshot to read the current bounty
+capture_refresh_delay = 1.5
+
 # Log your bounties: state
 # Can be true or false, helps to keep track of when your bounties were updated
 log_to_files = true

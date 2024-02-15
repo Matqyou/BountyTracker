@@ -17,7 +17,7 @@ class DiscordPresence:
             self.logger.log('DISCORD', f'Connected to discord application {self.application_id}')
             return True
         except exceptions.DiscordNotFound:
-            self.logger.log('DISCORD', 'Connection failed (application is closed or modified)')
+            self.logger.log('DISCORD', 'Connection to Discord failed (application is closed or modified)')
             self.show_discord_activity = False
         return False
 
