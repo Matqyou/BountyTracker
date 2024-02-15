@@ -12,7 +12,7 @@ To setup and run the program open BountyTracker.exe (if you don't trust random e
 
 To uninstall libraries run Uninstall.exe (or Uninstall.bat, you have to uninstall tesseract yourself since it needed admin privilages to install in the first place)
 
-If the app can't detect the bounty you need to adjust the capture rectangle in Capture.txt (change the capture_preview = true to help you see what the computer sees)
+If the app can't detect the bounty you need to adjust the capture_rectangle in Capture.txt (change the capture_preview = true to help you see what the computer sees)
 
 ![Example](Source/tutorial/Example.png)
 
