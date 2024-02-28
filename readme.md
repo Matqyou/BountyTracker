@@ -1,4 +1,5 @@
-[comment]: <> ([23/12/2023] Thanks to .luobu for testing)
+[comment]: <> ([23/12/2023] Thanks to Totally_Natural for testing)
+[comment]: <> ([28/02/2024] Thanks to ThunderBeast817 for wallet screenshot)
 # TheWildWest: BountyTracker
 ## Installation
 You will need these dependencies:

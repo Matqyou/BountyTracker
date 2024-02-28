@@ -2,7 +2,7 @@
 # It has to capture the full text $123123 Bounty and should check for extra space to the right
 # to compensate for large numbers like 100k+ or even 1mil+
 # I used these numbers for my screen resolution of 1080p without fullscreen v v v v
-capture_rectangle = 64, 106, 156, 27
+capture_rectangle = 64, 128, 156, 27
 
 # Show capture box: state
 # Can be true of false, helps to see where the app is capturing to detect bounty
@@ -23,4 +23,4 @@ show_discord_activity = true
 
 # Show capture preview: state
 # Can be true or false, decide if you want to see the captured area in a new window
-capture_preview = false
+capture_preview = true

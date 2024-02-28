@@ -3,7 +3,6 @@ from Display import Display, ItemDisplay
 from Launcher import Launcher, Logger
 from SaveTypes import SaveTypes
 import multiprocessing
-import numpy as np
 import subprocess
 import threading
 import random
@@ -20,6 +19,7 @@ try:
     from DiscordPresence import DiscordPresence
     from WindowsRender import WindowsRender
     import pytesseract
+    import numpy as np
     import pyautogui
     import requests
     import pygame
