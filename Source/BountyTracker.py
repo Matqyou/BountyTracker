@@ -137,7 +137,6 @@ class BountyTracker:
         self.raw_screenshot: Image = None  # type: ignore
         self.screenshot: Image = None  # type: ignore
         self.capture_window: pygame.Surface = None  # type: ignore
-        self.capture_ready: bool = False
 
         self.capture_rectangle: tuple = None  # type: ignore
         self.capture_size: tuple = None  # type: ignore
@@ -158,16 +157,25 @@ class BountyTracker:
         self.fun_messages.remove(self.display)
         self.message_update_timestamp = time()
 
-    def begin_capture_window(self) -> None:
+    def begin_capture_window(self, _self) -> None:
         pygame.init()
         icon = pygame.image.load('Icon.png')
-        self.capture_window = pygame.display.set_mode((self.capture_w,
-                                                       self.capture_h))
+        _self.capture_window = pygame.display.set_mode((self.capture_w, self.capture_h))
         pygame.display.set_icon(icon)
         pygame.display.set_caption(f'{self.capture_x}x {self.capture_y}y {self.capture_w}w {self.capture_h}h')
-        self.capture_ready = True
+        clock = pygame.time.Clock()
+        beginning = perf_counter()
+
         while True:
-            sleep(0.1)
+            clock.tick(60)
+            currently = perf_counter()
+            if currently - beginning > 0.75:
+                beginning = currently
+                caption = f'b/hr ${int(self.bounty_hourly(3600)):,}'
+                pygame.display.set_caption(caption)
+            screenshot_surface = pygame.image.fromstring(_self.raw_screenshot.tobytes(), _self.raw_screenshot.size, "RGB")
+            _self.capture_window.blit(screenshot_surface, (0, 0))
+            pygame.display.update()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
@@ -188,23 +196,8 @@ class BountyTracker:
             self.set_configuration('show_discord_activity', self.discord_presence.connect(), log_information)
 
         if self.capture_preview:
-            thread = threading.Thread(target=self.begin_capture_window)
+            thread = threading.Thread(target=self.begin_capture_window, args=(self,))
             thread.start()
-
-    # def bounty_gained_in_past_hour(self):
-    #     past_hour = time() - 3600
-    #     amount = 0
-    #     last_record = None
-    #     for record in self.history:
-    #         bounty_timestamp, bounty = record
-    #         if last_record is not None:
-    #             l_bounty_timestamp, l_bounty = last_record
-    #             bounty_difference = l_bounty - bounty
-    #             if l_bounty_timestamp < past_hour:
-    #                 break
-    #             amount += bounty_difference
-    #         last_record = record
-    #     return amount
 
     def bounty_hourly(self, check_how_long_ago: float):
         right_now = time()
@@ -273,29 +266,6 @@ class BountyTracker:
             if log_information:
                 self.logger.log('CONFIGURE', f'{keyword} = {value}')
 
-    # def load_bounty(self, log_information: bool) -> None:  # CHANGE IT TO WORK WITH HISTORY
-    #     if not os.path.exists(BountyTracker.SAVE_FILE):
-    #         self.last_bounty = self.bounty = 0
-    #         self.bounty_update_timestamp = int(time())
-    #         save_values = {
-    #             'bounty': self.bounty,
-    #             'bounty_timestamp': self.bounty_update_timestamp
-    #         }
-    #         SaveTypes.save_to_file(BountyTracker.SAVE_FILE, save_values)
-    #     else:
-    #         load_types = {
-    #             'bounty': int,
-    #             'bounty_timestamp': float
-    #         }
-    #         load_values = SaveTypes.load_file(BountyTracker.SAVE_FILE, load_types)
-    #         self.last_bounty = self.bounty = load_values['bounty']
-    #         self.bounty_update_timestamp = load_values['bounty_timestamp']
-    #
-    #     if log_information:
-    #         time_elapsed = format_time(time() - self.bounty_update_timestamp)
-    #         self.logger.log('LOADBOUNTY', f'Loaded bounty ${self.bounty:,}')
-    #         self.logger.log('LOADBOUNTY', f'It\'s been {time_elapsed} since last bounty update')
-
     def update_bounty(self, bounty: int):
         self.bounty = bounty
         self.bounty_update_timestamp = time()
@@ -313,10 +283,11 @@ class BountyTracker:
             item_display: ItemDisplay = self.display  # type: ignore
             state_text = item_display.generate_text(self.bounty)
 
+        hourly = int(self.bounty_hourly(3600))
         details_text = f'Current bounty: ${self.bounty:,}'
         image_text = f'Dead bounty: ${round(self.bounty * 0.4):,} ' \
                      f'last updated {format_time(time() - self.bounty_update_timestamp)} ago. ' \
-                     f'Hourly bounty rate ${int(self.bounty_hourly(3600)):,}'
+                     f'Hourly bounty rate ${hourly:,}'
 
         image_kwargs = (
             {'small_image': self.display.icon_key, 'small_text': image_text},
@@ -327,21 +298,6 @@ class BountyTracker:
                                      details=details_text,
                                      start=LAUNCHER.startup_timestamp_int,
                                      **image_kwargs)
-
-    # def process_screenshot(self) -> None:
-    #     self.raw_screenshot = pyautogui.screenshot(region=self.capture_rectangle)
-    #     grayscale_image = ImageOps.grayscale(self.raw_screenshot)
-    #     scaled_image = grayscale_image.resize((self.raw_screenshot.width * 6, self.raw_screenshot.height * 6), 5)
-    #     contrast_image = ImageEnhance.Contrast(scaled_image).enhance(1.2)
-    #
-    #     threshold = 225
-    #     binary_mask = contrast_image.point(lambda p: p > threshold and 255)
-    #     alpha_channel = Image.new("L", contrast_image.size, 255)
-    #     alpha_channel.paste(binary_mask, (0, 0))
-    #     threshold_image = contrast_image.convert("RGBA")
-    #     threshold_image.putalpha(alpha_channel)
-    #     black_background = Image.new("RGBA", threshold_image.size, (0, 0, 0, 255))
-    #     self.screenshot = Image.alpha_composite(black_background, threshold_image)
 
     def process_screenshot(self) -> bool:
         try:
@@ -367,11 +323,6 @@ class BountyTracker:
         self.screenshot = processed.resize((int(processed.width * BountyTracker.DOWNSCALE_SCREENSHOTS),
                                             int(processed.height * BountyTracker.DOWNSCALE_SCREENSHOTS)),
                                            Image.LANCZOS)
-
-        if self.capture_preview and self.capture_ready:
-            screenshot_surface = pygame.image.fromstring(self.raw_screenshot.tobytes(), self.raw_screenshot.size, "RGB")
-            self.capture_window.blit(screenshot_surface, (0, 0))
-            pygame.display.update()
         return True
 
     def process_detected_text(self) -> None:
