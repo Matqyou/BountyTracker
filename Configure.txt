@@ -10,10 +10,10 @@ show_capture_rectangle = false
 
 # Capture refresh delay: float
 # Can be a number zero or more, sets the delay in seconds between each screenshot to read the current bounty
-capture_refresh_delay = 1.5
+capture_refresh_delay = 0
 
 # Log your bounties: state
-# Can be true or false, helps to keep track of when your bounties were updated
+# Can be true or false, helps to keep track of when your bounties were updated (bounty history file also exists)
 log_to_files = true
 
 # Show as discord activity: state
@@ -24,3 +24,10 @@ show_discord_activity = true
 # Show capture preview: state
 # Can be true or false, decide if you want to see the captured area in a new window
 capture_preview = true
+
+# Use a ram disk: disk letter
+# Can be any available disk letter, you can change the letter to an sdd drive if your main drive is hdd
+# Ram disk is much faster than solid state drive or hard disk drive
+# To install a ram drive you can download ImDisk and open the configurator (10 megabytes is enough)
+# Once installed write the disk letter below (example: ram_disk_letter = R)
+ram_disk_letter = none

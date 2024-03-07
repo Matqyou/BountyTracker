@@ -149,6 +149,8 @@ class BountyTracker:
         self.show_discord_activity: bool = None  # type: ignore
         self.capture_preview: bool = None  # type: ignore
         self.capture_refresh_delay: float = None  # type: ignore
+        self.ram_disk_letter: str = None  # type: ignore
+        self.ram_disk_directory: str = None  # type: ignore
 
     def pick_new_fun_message(self) -> None:
         while not (filtered_selection := [fun_message for fun_message in self.fun_messages]):
@@ -173,31 +175,40 @@ class BountyTracker:
                 beginning = currently
                 caption = f'b/hr ${int(self.bounty_hourly(3600)):,}'
                 pygame.display.set_caption(caption)
-            screenshot_surface = pygame.image.fromstring(_self.raw_screenshot.tobytes(), _self.raw_screenshot.size, "RGB")
-            _self.capture_window.blit(screenshot_surface, (0, 0))
+            if _self.raw_screenshot:
+                screenshot_surface = pygame.image.fromstring(_self.raw_screenshot.tobytes(), _self.raw_screenshot.size, "RGB")
+                _self.capture_window.blit(screenshot_surface, (0, 0))
             pygame.display.update()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
-                    self.set_configuration('capture_preview', False, True)
+                    self.logger.log('CAPTURE', 'Capture window has been closed')
+                    self.set_configuration('capture_preview', False)
                     return
 
-    def initialize(self, log_information: bool = False) -> None:
-        self.load_configuration(log_information)
-        self.load_history(log_information)
+    def initialize(self) -> None:
+        self.load_configuration()
+        self.load_history()
 
-        if log_information:
-            self.logger.log('HISTORY', f'Current hourly bounty rate ${int(self.bounty_hourly(3600)):,}')
+        self.logger.log('HISTORY', f'Current hourly bounty rate ${int(self.bounty_hourly(3600)):,}')
 
         if self.show_capture_rectangle:
             multiprocessing.Process(target=ShowCaptureRectangle, args=(self.capture_rectangle,)).start()
 
         if self.show_discord_activity:
-            self.set_configuration('show_discord_activity', self.discord_presence.connect(), log_information)
+            self.set_configuration('show_discord_activity', self.discord_presence.connect())
 
         if self.capture_preview:
             thread = threading.Thread(target=self.begin_capture_window, args=(self,))
             thread.start()
+
+        if self.ram_disk_letter:
+            self.ram_disk_letter = self.ram_disk_letter[0].upper()
+            if not os.path.exists(f'{self.ram_disk_letter}:\\'):
+                self.logger.log('RAMDISK', f'No disk with the letter {self.ram_disk_letter} has been found')
+                self.set_configuration('ram_disk_letter', None)
+            else:
+                self.ram_disk_directory = f'{self.ram_disk_letter}:\\BountyTracker\\'
 
     def bounty_hourly(self, check_how_long_ago: float):
         right_now = time()
@@ -226,25 +237,25 @@ class BountyTracker:
         with open(BountyTracker.HISTORY_FILE, 'w') as tracking_file:
             tracking_file.write(f'{self.bounty_update_timestamp}, {self.bounty}')
 
-    def load_history(self, log_information: bool) -> None:
+    def load_history(self) -> None:
         if not os.path.exists(BountyTracker.HISTORY_FILE):
             self.init_history()
         else:
             self.history = SaveTypes.load_records(BountyTracker.HISTORY_FILE, (float, int))
 
-        if log_information:
-            if not len(self.history):
-                self.init_history()
-            else:
-                self.bounty_update_timestamp, self.bounty = self.history[0]
-                self.last_bounty = self.bounty
-            num_records = len(self.history)
-            time_elapsed = format_time(time() - self.bounty_update_timestamp)
-            self.logger.log('HISTORY', f'Loaded {num_records} record{("s", "")[num_records == 1]}')
-            self.logger.log('HISTORY', f'Loaded bounty ${self.bounty:,}')
-            self.logger.log('HISTORY', f'It\'s been {time_elapsed} since last bounty update')
+        if not len(self.history):
+            self.init_history()
+        else:
+            self.bounty_update_timestamp, self.bounty = self.history[0]
+            self.last_bounty = self.bounty
+        num_records = len(self.history)
+        time_elapsed = format_time(time() - self.bounty_update_timestamp)
 
-    def load_configuration(self, log_information: bool) -> None:
+        self.logger.log('HISTORY', f'Loaded {num_records} record{("s", "")[num_records == 1]}')
+        self.logger.log('HISTORY', f'Loaded bounty ${self.bounty:,}')
+        self.logger.log('HISTORY', f'It\'s been {time_elapsed} since last bounty update')
+
+    def load_configuration(self) -> None:
         load_types = {
             'capture_rectangle': (int, int, int, int),
             'show_capture_rectangle': bool,
@@ -252,19 +263,19 @@ class BountyTracker:
             'log_to_files': bool,
             'show_discord_activity': bool,
             'capture_preview': bool,
+            'ram_disk_letter': str
         }
         load_values = SaveTypes.load_file(self.CONFIGURATION_FILE, load_types)
         for keyword, value in load_values.items():
-            self.set_configuration(keyword, value, log_information)
+            self.set_configuration(keyword, value)
         if 'capture_rectangle' in load_values:
             self.capture_x, self.capture_y, self.capture_w, self.capture_h = self.capture_rectangle
-        LAUNCHER.logger.set_log_to_file(self.log_to_files)
+        self.logger.set_log_to_file(self.log_to_files)
 
-    def set_configuration(self, keyword: str, value, log_information: bool) -> None:
+    def set_configuration(self, keyword: str, value) -> None:
         if hasattr(self, keyword) and getattr(self, keyword) != value:
             setattr(self, keyword, value)
-            if log_information:
-                self.logger.log('CONFIGURE', f'{keyword} = {value}')
+            self.logger.log('CONFIGURE', f'{keyword} = {value}')
 
     def update_bounty(self, bounty: int):
         self.bounty = bounty
@@ -326,7 +337,30 @@ class BountyTracker:
         return True
 
     def process_detected_text(self) -> None:
-        detected_text = pytesseract.image_to_string(self.screenshot).strip()
+        if self.ram_disk_letter:
+            if not os.path.exists(self.ram_disk_directory):
+                os.mkdir(self.ram_disk_directory)
+            capture_path = f'{self.ram_disk_directory}capture.png'
+            result_path = f'{self.ram_disk_directory}result'
+            self.screenshot.save(capture_path)
+
+            kwargs = {
+                'input_filename': capture_path,
+                'output_filename_base': result_path,
+                'extension': 'txt',
+                'lang': None,
+                'config': '',
+                'nice': 0,
+                'timeout': 0,
+            }
+
+            pytesseract.pytesseract.run_tesseract(**kwargs)
+
+            with open(result_path + '.txt', 'rb') as output_file:
+                detected_text = output_file.read().decode('utf-8')
+        else:
+            detected_text = pytesseract.image_to_string(self.screenshot).strip()
+
         if detected_text:
             dollar_at = detected_text.find('$')
             bounty_at = detected_text.find('Bounty')
@@ -387,7 +421,7 @@ class BountyTracker:
 def main() -> None:
     os.system('cls')
     bounty_tracker = BountyTracker(LOGGER)
-    bounty_tracker.initialize(log_information=True)
+    bounty_tracker.initialize()
     bounty_tracker.run()
 
 

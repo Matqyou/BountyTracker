@@ -24,6 +24,12 @@ def parse_tuple(value_str: str, expected_types: tuple) -> tuple:
     return tuple(cast_to(param_str, expected_type) for param_str, expected_type in zip(split_value_str, expected_types))
 
 
+def parse_str(value_str: str, *args):
+    if not value_str or value_str.lower() == 'none':
+        return None
+    return value_str
+
+
 class SaveTypes:
     @staticmethod
     def save_to_file(file: str, values: dict) -> None:
@@ -43,7 +49,12 @@ class SaveTypes:
             for keyword, value_str in unparsed_values:
                 if keyword in load_types_:
                     expected_type = load_types_[keyword]
-                    parse_function = (cast_to, parse_tuple)[type(expected_type) == tuple]
+                    if type(expected_type) == tuple:
+                        parse_function = parse_tuple
+                    elif expected_type == str:
+                        parse_function = parse_str
+                    else:
+                        parse_function = cast_to
                     result[keyword] = parse_function(value_str, expected_type)
                     load_types_.pop(keyword)
                 else:
