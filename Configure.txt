@@ -2,7 +2,7 @@
 # It has to capture the full text $123123 Bounty and should check for extra space to the right
 # to compensate for large numbers like 100k+ or even 1mil+
 # I used these numbers for my screen resolution of 1080p without fullscreen v v v v
-capture_rectangle = 64, 128, 156, 27
+capture_rectangle = 64, 106, 156, 27
 
 # Show capture box: state
 # Can be true of false, helps to see where the app is capturing to detect bounty
@@ -10,6 +10,7 @@ show_capture_rectangle = false
 
 # Capture refresh delay: float
 # Can be a number zero or more, sets the delay in seconds between each screenshot to read the current bounty
+# If you're using a ram disk it's recommended to use capture_refresh_delay = 0
 capture_refresh_delay = 0
 
 # Log your bounties: state
@@ -25,9 +26,14 @@ show_discord_activity = true
 # Can be true or false, decide if you want to see the captured area in a new window
 capture_preview = true
 
+# Save captures to your disk: state
+# Can be true or false, decide if you want to save the raw and processed image for every updated
+# bounty (doesn't take much space, but should be off you have to save space)
+save_captures = true
+
 # Use a ram disk: disk letter
 # Can be any available disk letter, you can change the letter to an sdd drive if your main drive is hdd
 # Ram disk is much faster than solid state drive or hard disk drive
 # To install a ram drive you can download ImDisk and open the configurator (10 megabytes is enough)
 # Once installed write the disk letter below (example: ram_disk_letter = R)
-ram_disk_letter = none
+ram_disk_letter = r

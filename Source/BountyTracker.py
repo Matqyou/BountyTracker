@@ -79,7 +79,8 @@ def ShowCaptureRectangle(rectangle: tuple) -> None:
 
 class BountyTracker:
     APPLICATION_ID: str = str(1185231216211918900)
-    HISTORY_FILE = 'BountyHistory'
+    HISTORY_FILE = '../BountyHistory'
+    CAPTURES_DIRECTORY = '../Captures/'
     CONFIGURATION_FILE = '../Configure.txt'
     MESSAGE_UPDATE_DELAY: float = 45
     UPSCALE_SCREENSHOTS: int = 4
@@ -149,6 +150,7 @@ class BountyTracker:
         self.show_discord_activity: bool = None  # type: ignore
         self.capture_preview: bool = None  # type: ignore
         self.capture_refresh_delay: float = None  # type: ignore
+        self.save_captures: bool = None  # type: ignore
         self.ram_disk_letter: str = None  # type: ignore
         self.ram_disk_directory: str = None  # type: ignore
 
@@ -162,9 +164,9 @@ class BountyTracker:
     def begin_capture_window(self, _self) -> None:
         pygame.init()
         icon = pygame.image.load('Icon.png')
-        _self.capture_window = pygame.display.set_mode((self.capture_w, self.capture_h))
+        _self.capture_window = pygame.display.set_mode((_self.capture_w * BountyTracker.UPSCALE_SCREENSHOTS * BountyTracker.DOWNSCALE_SCREENSHOTS, _self.capture_h + _self.capture_h * BountyTracker.UPSCALE_SCREENSHOTS * BountyTracker.DOWNSCALE_SCREENSHOTS))
         pygame.display.set_icon(icon)
-        pygame.display.set_caption(f'{self.capture_x}x {self.capture_y}y {self.capture_w}w {self.capture_h}h')
+        pygame.display.set_caption(f'{_self.capture_x}x {_self.capture_y}y {_self.capture_w}w {_self.capture_h}h')
         clock = pygame.time.Clock()
         beginning = perf_counter()
 
@@ -178,6 +180,9 @@ class BountyTracker:
             if _self.raw_screenshot:
                 screenshot_surface = pygame.image.fromstring(_self.raw_screenshot.tobytes(), _self.raw_screenshot.size, "RGB")
                 _self.capture_window.blit(screenshot_surface, (0, 0))
+            if _self.screenshot:
+                screenshot_surface = pygame.image.fromstring(_self.screenshot.tobytes(), _self.screenshot.size, "RGB")
+                _self.capture_window.blit(screenshot_surface, (0, _self.capture_h))
             pygame.display.update()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -235,7 +240,7 @@ class BountyTracker:
         self.bounty_update_timestamp = int(time())
         self.history = [(self.bounty_update_timestamp, self.bounty)]
         with open(BountyTracker.HISTORY_FILE, 'w') as tracking_file:
-            tracking_file.write(f'{self.bounty_update_timestamp}, {self.bounty}')
+            tracking_file.write(f'{self.bounty_update_timestamp}, {self.bounty}\n')
 
     def load_history(self) -> None:
         if not os.path.exists(BountyTracker.HISTORY_FILE):
@@ -263,6 +268,7 @@ class BountyTracker:
             'log_to_files': bool,
             'show_discord_activity': bool,
             'capture_preview': bool,
+            'save_captures': bool,
             'ram_disk_letter': str
         }
         load_values = SaveTypes.load_file(self.CONFIGURATION_FILE, load_types)
@@ -320,7 +326,7 @@ class BountyTracker:
         capture_pil = self.raw_screenshot.copy()
         upscaled_pil = capture_pil.resize((int(capture_pil.width * BountyTracker.UPSCALE_SCREENSHOTS),
                                            int(capture_pil.height * BountyTracker.UPSCALE_SCREENSHOTS)),
-                                          Image.LANCZOS)
+                                          Image.Resampling.LANCZOS)
         upscaled_image = np.array(upscaled_pil)
         hsv_image = cv2.cvtColor(upscaled_image, cv2.COLOR_RGB2HSV)
 
@@ -333,7 +339,7 @@ class BountyTracker:
         processed = Image.fromarray(rgb_image)
         self.screenshot = processed.resize((int(processed.width * BountyTracker.DOWNSCALE_SCREENSHOTS),
                                             int(processed.height * BountyTracker.DOWNSCALE_SCREENSHOTS)),
-                                           Image.LANCZOS)
+                                           Image.Resampling.LANCZOS)
         return True
 
     def process_detected_text(self) -> None:
@@ -353,7 +359,6 @@ class BountyTracker:
                 'nice': 0,
                 'timeout': 0,
             }
-
             pytesseract.pytesseract.run_tesseract(**kwargs)
 
             with open(result_path + '.txt', 'rb') as output_file:
@@ -399,7 +404,11 @@ class BountyTracker:
                                                    color=(0, 0, 0))
                         capture_sample.paste(self.raw_screenshot, (0, 0))
                         capture_sample.paste(self.screenshot, (0, self.raw_screenshot.height))
-                        capture_sample.save(f'captures/{self.bounty_update_timestamp}.png')
+
+                        if self.save_captures:
+                            if not os.path.exists(BountyTracker.CAPTURES_DIRECTORY):
+                                os.mkdir(BountyTracker.CAPTURES_DIRECTORY)
+                            capture_sample.save(f'{BountyTracker.CAPTURES_DIRECTORY}{self.bounty_update_timestamp}.png')
 
     def run(self) -> None:
         cycle_start = perf_counter()
