@@ -1,3 +1,4 @@
+opencv-python
 pytesseract
 pypresence
 pyautogui
@@ -5,4 +6,3 @@ requests
 pywin32
 pygame
 numpy
-opencv-python
