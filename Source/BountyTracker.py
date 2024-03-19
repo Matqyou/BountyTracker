@@ -2,7 +2,7 @@ from Display import Display, ItemDisplay, RateDisplay
 from time import sleep, time, perf_counter
 from Launcher import Launcher, Logger
 from SaveTypes import SaveTypes
-from typing import Any
+from typing import Any, Optional
 import multiprocessing
 import subprocess
 import threading
@@ -150,7 +150,7 @@ class BountyTracker:
         self.discord_presence: DiscordPresence = DiscordPresence(logger, BountyTracker.APPLICATION_ID)
         self.message_update_timestamp: float = time()
         self.fun_messages: list[Display] = []
-        self.history: list[tuple] = []
+        self.history: list[tuple[float, int]] = []
         self.detected_queue: list[int] = []
         self.roblox_capture: ApplicationCapture = None  # type: ignore
         self.last_roblox_capture_search_timestamp: float = None  # type: ignore
@@ -234,8 +234,6 @@ class BountyTracker:
         self.load_configuration()
         self.load_history()
 
-        self.logger.log('HISTORY', f'Current hourly bounty rate ${int(self.bounty_hourly(3600)):,}')
-
         self.find_roblox_window()
 
         if self.show_capture_rectangle:
@@ -287,11 +285,11 @@ class BountyTracker:
         if not os.path.exists(BountyTracker.HISTORY_FILE):
             self.init_history()
         else:
-            self.history = SaveTypes.load_records(BountyTracker.HISTORY_FILE, (float, int))
+            self.history: list[tuple[float, int]] = SaveTypes.load_records(BountyTracker.HISTORY_FILE, (float, int))
 
         if not len(self.history):
             self.init_history()
-        else:
+        else:  # If the file is empty for some reason
             self.bounty_update_timestamp, self.bounty = self.history[0]
             self.last_bounty = self.bounty
         num_records = len(self.history)
@@ -299,7 +297,22 @@ class BountyTracker:
 
         self.logger.log('HISTORY', f'Loaded {num_records} record{("s", "")[num_records == 1]}')
         self.logger.log('HISTORY', f'Loaded bounty ${self.bounty:,}')
+
+        num_intro_records: int = 5
+        self.logger.log('HISTORY', f'[Last {num_intro_records} bounty updates]')
+        intro_records = self.history[num_intro_records::-1] if num_records >= num_intro_records else self.history[::-1]
+        last_timestamp: Optional[float] = None
+        last_bounty: Optional[int] = None
+        for timestamp, bounty in intro_records:
+            if last_timestamp is not None:
+                timetext = format_time_elapsed(timestamp - last_timestamp)
+                bountytext = f'+${bounty - last_bounty:,}'
+                self.logger.log('HISTORY', f'Bounty updated to ${bounty:,} / {bountytext} over {timetext}')
+            last_timestamp = timestamp
+            last_bounty = bounty
+
         self.logger.log('HISTORY', f'It\'s been {time_elapsed} since last bounty update')
+        self.logger.log('HISTORY', f'Current hourly bounty rate ${int(self.bounty_hourly(3600)):,}')
 
     def load_configuration(self) -> None:
         load_values = SaveTypes.load_file(BountyTracker.CONFIGURATION_FILE, BountyTracker.configuration_types)
@@ -350,15 +363,7 @@ class BountyTracker:
                                      start=LAUNCHER.startup_timestamp_int,
                                      **image_kwargs)
 
-    def process_screenshot(self) -> bool:
-        if not self.roblox_capture.is_open():
-            self.roblox_capture.window_closed()
-            self.roblox_capture = None
-            self.logger.log('CAPTURE', 'Roblox has been closed')
-            return False
-
-        self.raw_screenshot = self.roblox_capture.capture()
-
+    def process_screenshot(self) -> None:
         capture_pil = self.raw_screenshot.copy()
         upscaled_pil = capture_pil.resize((int(capture_pil.width * BountyTracker.SCREENIE_PRESCALE),
                                            int(capture_pil.height * BountyTracker.SCREENIE_PRESCALE)),
@@ -376,6 +381,15 @@ class BountyTracker:
         self.screenshot = processed.resize((int(processed.width * BountyTracker.SCREENIE_POSTSCALE),
                                             int(processed.height * BountyTracker.SCREENIE_POSTSCALE)),
                                            Image.Resampling.LANCZOS)
+
+    def capture_screenshot(self) -> bool:
+        if not self.roblox_capture.is_open():
+            self.roblox_capture.window_closed()
+            self.roblox_capture = None
+            return False
+
+        self.raw_screenshot = self.roblox_capture.capture()
+        self.process_screenshot()
         return True
 
     def process_detected_text(self) -> None:
@@ -469,7 +483,7 @@ class BountyTracker:
                 self.update_presence()
 
             if self.roblox_capture:
-                if self.process_screenshot():
+                if self.capture_screenshot():
                     self.process_detected_text()
             else:
                 if perf_counter() - self.last_roblox_capture_search_timestamp > 1:
