@@ -38,7 +38,7 @@ class SaveTypes:
             save_file.write(save_text)
 
     @staticmethod
-    def load_file(file: str, load_types: dict) -> dict:
+    def load_file(file: str, load_types: dict) -> dict:  # TODO: Missing bools should be False ? ? ?
         if os.path.exists(file):
             with open(file, 'r') as file:
                 content_lines = file.read().splitlines()

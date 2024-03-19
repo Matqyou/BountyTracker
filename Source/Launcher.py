@@ -3,7 +3,7 @@ from time import time
 import traceback
 import os
 
-LOGS_DIRECTORY = 'logs/'
+LOGS_DIRECTORY = '../Logs/'
 
 
 class Logger:

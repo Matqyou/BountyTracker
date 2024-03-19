@@ -1,6 +1,12 @@
 IMAGE_SIZES = ['small', 'large']
 
 
+class DisplayType:
+    Normal = 0
+    Item = 1
+    Rate = 2
+
+
 class Display:
     def __init__(self, message_format: str,
                  icon_key: str = None,
@@ -12,7 +18,7 @@ class Display:
         self.image_size: int = IMAGE_SIZES.index(image_size.lower())
         self.exposure_time: float = exposure_time
         self.chance: float = chance
-        self.display_type = 0
+        self.display_type: int = DisplayType.Normal
 
 
 class ItemDisplay(Display):
@@ -25,7 +31,7 @@ class ItemDisplay(Display):
                  chance: float = 1.0):
         super().__init__(message_format, icon_key, image_size, exposure_time, chance)
         self.item_price: int = item_price
-        self.display_type = 1
+        self.display_type: int = DisplayType.Item
 
         if suffix_info is not None:
             suffix_info = tuple(suffix_info.split('/'))
@@ -49,3 +55,24 @@ class ItemDisplay(Display):
             suffix = suffix_info[index]
 
         return self.message_format.format(amount, suffix)
+
+
+class RateDisplay(Display):
+    def __init__(self, message_format: str,
+                 hourly_amount: int = 0,
+                 icon_key: str = None,
+                 image_size: str = 'small',
+                 exposure_time: float = 1.0,
+                 chance: float = 1.0):
+        super().__init__(message_format, icon_key, image_size, exposure_time, chance)
+        self.hourly: int = hourly_amount
+        self.display_type = DisplayType.Rate
+
+    def generate_text(self, money: int) -> str:
+        hours: int = money // self.hourly
+        if hours < 1.0:
+            time_text = f'{int(hours * 60)}m'
+        else:
+            time_text = f'{hours}h'
+        return self.message_format.format(time_text)
+

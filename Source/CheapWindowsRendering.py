@@ -1,7 +1,7 @@
 import win32gui, win32api, win32con
 
 
-class WindowsRender:
+class CheapWindowsRendering:
     def __init__(self, color: tuple = (255, 0, 0)):
         self.device_context = win32gui.GetDC(0)
         self.pen_color = win32api.RGB(*color)
