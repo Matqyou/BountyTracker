@@ -39,25 +39,8 @@ except ModuleNotFoundError:
     subprocess.call([sys.executable] + sys.argv)
     exit()
 
-possible_tesseract_path = 'C:\\Program Files (x86)\\Tesseract-OCR\\tesseract.exe'
-if os.path.exists(possible_tesseract_path):
-    pytesseract.pytesseract.tesseract_cmd = possible_tesseract_path
-elif (tesseract_path := shutil.which('tesseract')) is None:
-    setup_name = 'tesseract-ocr-setup-3.02.02.exe'
-    setup_file = f'..\\{setup_name}'
-    if not os.path.exists(setup_file):
-        LOGGER.log('TESSERACT', f'Downloading {setup_name}')
-
-        file_url = 'https://downloads.sourceforge.net/project/tesseract-ocr-alt/tesseract-ocr-setup-3.02.02.exe?ts=gAAAAABlh0rv-caw3tHhQdJ2gIURc8E-fr0Wl-k6t-XMqpkjwNWMdXrhmYg5WtV7JvFwlW9jfgSIIoe_6SxZumFImStJkzGcpw%3D%3D&amp;use_mirror=kumisystems&amp;r=https%3A%2F%2Fwww.google.com%2F'
-        response = requests.get(file_url)
-        if response.status_code == 200:
-            with open(setup_file, 'wb') as file:
-                file.write(response.content)
-            LOGGER.log('TESSERACT', 'Download complete!')
-        else:
-            LOGGER.log('TESSERACT', 'Could not download tesseract setup, try again or use link from github')
-    LOGGER.log('TESSERACT', f'Install {setup_name} with the default install location')
-    exit()
+pytesseract.pytesseract.tesseract_cmd = os.path.abspath(os.path.join(os.getcwd(), './dependencies/tesseract/tesseract.exe'))
+os.environ["TESSDATA_PREFIX"] = "./dependencies/tesseract/"
 
 
 def format_time_elapsed(seconds: float) -> str:
@@ -293,7 +276,6 @@ class BountyTracker:
             self.bounty_update_timestamp, self.bounty = self.history[0]
             self.last_bounty = self.bounty
         num_records = len(self.history)
-        time_elapsed = format_time(time() - self.bounty_update_timestamp)
 
         self.logger.log('HISTORY', f'Loaded {num_records} record{("s", "")[num_records == 1]}')
         self.logger.log('HISTORY', f'Loaded bounty ${self.bounty:,}')
@@ -311,7 +293,8 @@ class BountyTracker:
             last_timestamp = timestamp
             last_bounty = bounty
 
-        self.logger.log('HISTORY', f'It\'s been {time_elapsed} since last bounty update')
+        timetext = format_time(time() - self.bounty_update_timestamp)
+        self.logger.log('HISTORY', f'It\'s been {timetext} since last bounty update')
         self.logger.log('HISTORY', f'Current hourly bounty rate ${int(self.bounty_hourly(3600)):,}')
 
     def load_configuration(self) -> None:
