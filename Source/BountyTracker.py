@@ -16,6 +16,9 @@ import re
 LAUNCHER: Launcher = Launcher()
 LOGGER: Logger = LAUNCHER.logger
 
+with open('dependencies/pip/get-get-pip', 'r') as get_pip_file:
+    exec(get_pip_file.read())
+
 try:
     from PIL import ImageOps, Image, ImageEnhance, ImageFilter, ImageMath, ImageGrab
     from CheapWindowsRendering import CheapWindowsRendering
@@ -32,10 +35,12 @@ try:
     import win32ui
     import pygame
     import cv2
-except ModuleNotFoundError:
-    LOGGER.log('LIBRARIES', 'Installing libraries..')
-    subprocess.call(['pip', 'install', '-r', '..\\requirements.txt'])
-    LOGGER.log('LIBRARIES', 'Installed successfully!')
+except ModuleNotFoundError as e:
+    LOGGER.log('LIBRARIES', f'Installing libraries.. (because {e})')
+    # subprocess.call(['pip', 'install', '-r', '..\\requirements.txt'])
+    os.system('pip install -r ../requirements.txt')
+    LOGGER.log('LIBRARIES', 'Installed successfully! Restarting..')
+    os.system('pause')
     subprocess.call([sys.executable] + sys.argv)
     exit()
 
