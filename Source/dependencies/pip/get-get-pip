@@ -1,0 +1,5 @@
+try:
+    import pip
+except ModuleNotFoundError:
+    os.system('curl https://bootstrap.pypa.io/get-pip.py -o ./dependencies/get-pip.py && py ./dependencies/get-pip.py')
+    import pip
