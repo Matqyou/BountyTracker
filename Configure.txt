@@ -11,9 +11,9 @@ show_capture_rectangle = false
 # Capture refresh delay: float
 # Can be a number zero or more, sets the delay in seconds between each screenshot to read the current bounty
 # If you're using a ram disk it's recommended to use capture_refresh_delay = 0
-capture_refresh_delay = 0
+capture_refresh_delay = 1
 
-# Log your bounties: state
+# Log your bounties and errors: state
 # Can be true or false, helps to keep track of when your bounties were updated (bounty history file also exists)
 log_to_files = true
 
@@ -36,4 +36,4 @@ save_captures = true
 # Ram disk is much faster than solid state drive or hard disk drive
 # To install a ram drive you can download ImDisk and open the configurator (10 megabytes is enough)
 # Once installed write the disk letter below (example: ram_disk_letter = R)
-ram_disk_letter = r
+ram_disk_letter = c
