@@ -285,18 +285,19 @@ class BountyTracker:
         self.logger.log('HISTORY', f'Loaded {num_records} record{("s", "")[num_records == 1]}')
         self.logger.log('HISTORY', f'Loaded bounty ${self.bounty:,}')
 
-        num_intro_records: int = 5
-        self.logger.log('HISTORY', f'[Last {num_intro_records} bounty updates]')
-        intro_records = self.history[num_intro_records::-1] if num_records >= num_intro_records else self.history[::-1]
-        last_timestamp: Optional[float] = None
-        last_bounty: Optional[int] = None
-        for timestamp, bounty in intro_records:
-            if last_timestamp is not None:
-                timetext = format_time_elapsed(timestamp - last_timestamp)
-                bountytext = f'+${bounty - last_bounty:,}'
-                self.logger.log('HISTORY', f'Bounty updated to ${bounty:,} / {bountytext} over {timetext}')
-            last_timestamp = timestamp
-            last_bounty = bounty
+        if self.history:
+            num_intro_records: int = 5
+            self.logger.log('HISTORY', f'[Last {num_intro_records} bounty updates]')
+            intro_records = self.history[num_intro_records::-1] if num_records >= num_intro_records else self.history[::-1]
+            last_timestamp: Optional[float] = None
+            last_bounty: Optional[int] = None
+            for timestamp, bounty in intro_records:
+                if last_timestamp is not None:
+                    timetext = format_time_elapsed(timestamp - last_timestamp)
+                    bountytext = f'+${bounty - last_bounty:,}'
+                    self.logger.log('HISTORY', f'Bounty updated to ${bounty:,} / {bountytext} over {timetext}')
+                last_timestamp = timestamp
+                last_bounty = bounty
 
         timetext = format_time(time() - self.bounty_update_timestamp)
         self.logger.log('HISTORY', f'It\'s been {timetext} since last bounty update')
