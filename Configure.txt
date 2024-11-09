@@ -2,7 +2,7 @@
 # It has to capture the full text $123123 Bounty and should check for extra space to the right
 # to compensate for large numbers like 100k+ or even 1mil+
 # I used these numbers for my screen resolution of 1080p without fullscreen v v v v
-capture_rectangle = 64, 83, 156, 27
+capture_rectangle = 64, 104, 156, 27
 
 # Show capture box: state
 # Can be true of false, helps to see where the app is capturing to detect bounty
@@ -36,4 +36,4 @@ save_captures = true
 # Ram disk is much faster than solid state drive or hard disk drive
 # To install a ram drive you can download ImDisk and open the configurator (10 megabytes is enough)
 # Once installed write the disk letter below (example: ram_disk_letter = R)
-ram_disk_letter = c
+ram_disk_letter = r
