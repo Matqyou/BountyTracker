@@ -4,10 +4,6 @@
 # I used these numbers for my screen resolution of 1080p without fullscreen v v v v
 capture_rectangle = 64, 104, 156, 27
 
-# Show capture box: state
-# Can be true of false, helps to see where the app is capturing to detect bounty
-show_capture_rectangle = false
-
 # Capture refresh delay: float
 # Can be a number zero or more, sets the delay in seconds between each screenshot to read the current bounty
 # If you're using a ram disk it's recommended to use capture_refresh_delay = 0

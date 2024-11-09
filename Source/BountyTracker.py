@@ -3,11 +3,9 @@ from time import sleep, time, perf_counter
 from Launcher import Launcher, Logger
 from SaveTypes import SaveTypes
 from typing import Any, Optional
-import multiprocessing
 import subprocess
 import threading
 import random
-import shutil
 # import atexit
 import sys
 import os
@@ -64,15 +62,6 @@ def format_time(seconds: float) -> str:
     return f'{seconds // 3600:>02}:{(seconds // 60) % 60:>02}:{seconds % 60:>02}'
 
 
-def ShowCaptureRectangle(rectangle: tuple) -> None:  # TODO: make this better
-    windows_render: CheapWindowsRendering = CheapWindowsRendering()
-    try:
-        while True:
-            windows_render.draw_rectangle(rectangle)
-    except KeyboardInterrupt:
-        pass
-
-
 class BountyTracker:
     APPLICATION_ID: str = str(1185231216211918900)
     HISTORY_FILE: str = '../BountyHistory'
@@ -109,9 +98,9 @@ class BountyTracker:
         ItemDisplay("That's like {} lamborghini{} 0_0", 250000, 'lamborghini', 's/', chance=0.5),
         ItemDisplay("That's like {} paterson{} wuah", 650000, 'patersonnavy', 's/'),
         ItemDisplay("That's like {} spitfire{} $-$", 4250000, 'spitfire', 's/'),
+        DurationDisplay("Started {} ago ^-^", 'clock'),
         RateDisplay("Just {} of deer hunting ;L", 30000, 'deer', chance=0.2),
         HighestDisplay("Highest at {} ^._.^", "mycat", chance=0.25),
-        DurationDisplay("Started {} ago ^-^", 'clock', chance=0.75),
         Display("What is he looking at..", 'snowman', exposure_time=0.5, chance=0.75),
         Display("Mmmm tasty..", 'candycane', exposure_time=0.5, chance=0.75),
         Display("Thanks, Santa! :}", 'rednoserifle', exposure_time=0.5, chance=0.75),
@@ -230,9 +219,6 @@ class BountyTracker:
         self.load_history()
 
         self.find_roblox_window()
-
-        if self.show_capture_rectangle:
-            multiprocessing.Process(target=ShowCaptureRectangle, args=(self.capture_rectangle,)).start()
 
         if self.show_discord_activity:
             self.set_configuration('show_discord_activity', self.discord_presence.connect())
