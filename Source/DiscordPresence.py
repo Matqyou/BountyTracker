@@ -32,7 +32,7 @@ class DiscordPresence:
                instance: bool = True, payload_override: dict = None):
         try:
             self.presence.update(pid, state, details, start, end, large_image, large_text, small_image, small_text,
-           party_id, party_size, join, spectate, match, buttons, instance, payload_override)
+                                 party_id, party_size, join, spectate, match, buttons, instance, payload_override)
         except exceptions.PipeClosed:
             self.logger.log('DISCORD', f'Discord connection isn\'t open, switched to offline mode')
             self.show_discord_activity = False
