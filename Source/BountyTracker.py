@@ -1,4 +1,4 @@
-from Display import Display, ItemDisplay, RateDisplay
+from Display import DisplayType, Display, ItemDisplay, RateDisplay, HighestDisplay, DurationDisplay
 from time import sleep, time, perf_counter
 from Launcher import Launcher, Logger
 from SaveTypes import SaveTypes
@@ -85,6 +85,7 @@ class BountyTracker:
     BOUNTY_REGEX = re.compile(r'\$\d+\sBounty')
     FUN_MESSAGES: list[Display] = [
         ItemDisplay("That's like {} cact{} =_=", 3, 'cactus', 'i/us'),
+        ItemDisplay("That's like {} plank{} :#", 10, 'planks', 's/'),
         ItemDisplay("That's like {} chair{} :>", 40, 'chair', 's/'),
         ItemDisplay("That's like {} dynamite >:O", 50, 'dynamite', None),
         ItemDisplay("That's like {} bear trap{} E-E", 60, 'beartrap', 's/'),
@@ -95,30 +96,34 @@ class BountyTracker:
         ItemDisplay("That's like {} shovel{} ._.", 800, 'shovel', 's/'),
         ItemDisplay("That's like {} legendary bison pelt{} :v", 1050, 'legendarybisonpelt', 's/'),
         ItemDisplay("That's like {} bank robber{} o_o", 1900, 'goldbar', 'ies/y'),
+        ItemDisplay("That's {} gold train robber{} q-q", 1150, 'goldtrain', 'ies/y'),
         ItemDisplay("That's like {} thunder log{} xO", 2000, 'thunderstrucklog', 's/'),
         ItemDisplay("That's like {} thunder cact{} xO", 3000, 'thunderstruckcactus', 'i/us'),
-        ItemDisplay("That's like {} scorched pelt{} :D", 3500, 'scorchedpelt', 's/'),
+        ItemDisplay("That's like {} scorched pelt{} :D", 1200, 'scorchedpelt', 's/'),
         ItemDisplay("That's like {} winchester rifle{} x_x", 7200, 'winchester', 's/'),
         ItemDisplay("That's like {} mustang horse{} ;$", 10000, 'mustang', 's/'),
         ItemDisplay("That's like {} frozen axe{} :O", 30000, 'frozenaxe', 's/'),
-        ItemDisplay("That's like {} cursed volcanic pistol{}", 55000, 'cursedvolcanicpistol', 's/'),
+        ItemDisplay("That's like {} cursed volcanic pistol{}", 60000, 'cursedvolcanicpistol', 's/'),
         ItemDisplay("That's like {} kukri{}", 90000, 'kukri', 's/'),
         ItemDisplay("That's like {} axegonne{} :I", 230000, 'axegonne', 's/'),
         ItemDisplay("That's like {} lamborghini{} 0_0", 250000, 'lamborghini', 's/', chance=0.5),
-        ItemDisplay("That's like {} paterson{} wuah", 475000, 'patersonnavy', 's/'),
+        ItemDisplay("That's like {} paterson{} wuah", 650000, 'patersonnavy', 's/'),
         ItemDisplay("That's like {} spitfire{} $-$", 4250000, 'spitfire', 's/'),
         RateDisplay("Just {} of deer hunting ;L", 30000, 'deer', chance=0.2),
+        HighestDisplay("Highest at {} ^._.^", "mycat", chance=0.25),
+        DurationDisplay("Started {} ago ^-^", 'clock', chance=0.75),
         Display("What is he looking at..", 'snowman', exposure_time=0.5, chance=0.75),
         Display("Mmmm tasty..", 'candycane', exposure_time=0.5, chance=0.75),
         Display("Thanks, Santa! :}", 'rednoserifle', exposure_time=0.5, chance=0.75),
         Display("That was a nice event..", 'occultblade', exposure_time=0.5, chance=0.75),
         Display("Lightning! Pew pew..", 'lightningmodel3', exposure_time=0.5, chance=0.75),
+        Display("Wth is that?", 'wendigo', exposure_time=0.25, chance=0.75),
         Display("Freddy is watching you D:", 'freddy', exposure_time=0.5, chance=0.75),
+        Display("Catapult", 'sled', exposure_time=0.25, chance=0.4),
         Display("???", 'mjolnir', exposure_time=0.25, chance=0.4),
         Display("???", 'heavyguitar', exposure_time=0.25, chance=0.4),
         Display("???", 'm16', exposure_time=0.25, chance=0.4),
         Display("???", 'headsman', exposure_time=0.25, chance=0.4),
-        Display("???", 'sled', exposure_time=0.25, chance=0.4),
         Display("Uhhh", 'waa', exposure_time=0.25, chance=0.4),
     ]
     configuration_types: dict[str, Any] = {
@@ -145,7 +150,9 @@ class BountyTracker:
         self.display: Display = None  # type: ignore
         self.bounty: int = None  # type: ignore
         self.last_bounty: int = None  # type: ignore
+        self.highest_bounty: int = None  # type: ignore
         self.bounty_update_timestamp: float = None  # type: ignore
+        self.bounty_started_timestamp: float = None  # type: ignore
         self.raw_screenshot: Image = None  # type: ignore
         self.screenshot: Image = None  # type: ignore
         self.capture_window: pygame.Surface = None  # type: ignore
@@ -242,6 +249,16 @@ class BountyTracker:
             else:
                 self.ram_disk_directory = f'{self.ram_disk_letter}:\\BountyTracker\\'
 
+    def bounty_duration(self) -> float:
+        previous_timestamp, previous_bounty = self.history[0]
+        for timestamp, bounty in self.history[1:]:
+            if bounty > previous_bounty:
+                break
+
+            previous_bounty = bounty
+            previous_timestamp = timestamp
+        return time() - previous_timestamp
+
     def bounty_hourly(self, check_how_long_ago: float) -> float:
         right_now = time()
         past_hour = right_now - check_how_long_ago
@@ -263,8 +280,8 @@ class BountyTracker:
         return 0.0
 
     def init_history(self) -> None:
-        self.last_bounty = self.bounty = 0
-        self.bounty_update_timestamp = int(time())
+        self.highest_bounty = self.last_bounty = self.bounty = 0
+        self.bounty_started_timestamp = self.bounty_update_timestamp = int(time())
         self.history = [(self.bounty_update_timestamp, self.bounty)]
         with open(BountyTracker.HISTORY_FILE, 'w') as tracking_file:
             tracking_file.write(f'{self.bounty_update_timestamp}, {self.bounty}\n')
@@ -280,13 +297,14 @@ class BountyTracker:
         else:  # If the file is empty for some reason
             self.bounty_update_timestamp, self.bounty = self.history[0]
             self.last_bounty = self.bounty
+            self.highest_bounty = max(self.history, key=lambda x: x[1])[1]
         num_records = len(self.history)
 
         self.logger.log('HISTORY', f'Loaded {num_records} record{("s", "")[num_records == 1]}')
-        self.logger.log('HISTORY', f'Loaded bounty ${self.bounty:,}')
+        self.logger.log('HISTORY', f'Loaded bounty ${self.bounty:,} | TOP bounty ${self.highest_bounty:,}')
 
         if self.history:
-            num_intro_records: int = 5
+            num_intro_records: int = 7
             self.logger.log('HISTORY', f'[Last {num_intro_records} bounty updates]')
             intro_records = self.history[num_intro_records::-1] if num_records >= num_intro_records else self.history[::-1]
             last_timestamp: Optional[float] = None
@@ -319,6 +337,9 @@ class BountyTracker:
     def update_bounty(self, bounty: int):
         self.bounty = bounty
         self.bounty_update_timestamp = time()
+        if bounty > self.highest_bounty:
+            self.highest_bounty = bounty
+
         SaveTypes.append_record(BountyTracker.HISTORY_FILE, f'{self.bounty_update_timestamp}, {self.bounty}')
         self.history.insert(0, (self.bounty_update_timestamp, self.bounty))
 
@@ -327,14 +348,20 @@ class BountyTracker:
             return
 
         state_text = None
-        if self.display.display_type == 0:
+        if self.display.display_type == DisplayType.Normal:
             state_text = self.display.message_format
-        elif self.display.display_type == 1:
+        elif self.display.display_type == DisplayType.Item:
             item_display: ItemDisplay = self.display  # type: ignore
             state_text = item_display.generate_text(self.bounty)
-        elif self.display.display_type == 2:
+        elif self.display.display_type == DisplayType.Rate:
             rate_display: RateDisplay = self.display  # type: ignore
             state_text = rate_display.generate_text(self.bounty)
+        elif self.display.display_type == DisplayType.Highest:
+            highest_display: HighestDisplay = self.display  # type: ignore
+            state_text = highest_display.generate_text(self.highest_bounty)
+        elif self.display.display_type == DisplayType.Duration:
+            duration_display: DurationDisplay = self.display  # type: ignore
+            state_text = duration_display.generate_text(self.bounty_duration())
 
         hourly = int(self.bounty_hourly(3600))
         details_text = f'Current bounty: ${self.bounty:,}'

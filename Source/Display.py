@@ -5,12 +5,14 @@ class DisplayType:
     Normal = 0
     Item = 1
     Rate = 2
+    Highest = 3
+    Duration = 4
 
 
 class Display:
     def __init__(self, message_format: str,
                  icon_key: str = None,
-                 image_size: str = 'small',
+                 image_size: str = 'large',
                  exposure_time: float = 1.0,
                  chance: float = 1.0):
         self.message_format: str = message_format
@@ -26,7 +28,7 @@ class ItemDisplay(Display):
                  item_price: int,
                  icon_key: str = None,
                  suffix_info: str = None,
-                 image_size: str = 'small',
+                 image_size: str = 'large',
                  exposure_time: float = 1.0,
                  chance: float = 1.0):
         super().__init__(message_format, icon_key, image_size, exposure_time, chance)
@@ -61,7 +63,7 @@ class RateDisplay(Display):
     def __init__(self, message_format: str,
                  hourly_amount: int = 0,
                  icon_key: str = None,
-                 image_size: str = 'small',
+                 image_size: str = 'large',
                  exposure_time: float = 1.0,
                  chance: float = 1.0):
         super().__init__(message_format, icon_key, image_size, exposure_time, chance)
@@ -69,10 +71,49 @@ class RateDisplay(Display):
         self.display_type = DisplayType.Rate
 
     def generate_text(self, money: int) -> str:
-        hours: int = money // self.hourly
+        hours: float = money / self.hourly
         if hours < 1.0:
             time_text = f'{int(hours * 60)}m'
         else:
-            time_text = f'{hours}h'
+            time_text = f'{int(hours)}h'
         return self.message_format.format(time_text)
 
+
+class HighestDisplay(Display):
+    def __init__(self, message_format: str,
+                 icon_key: str = None,
+                 image_size: str = 'large',
+                 exposure_time: float = 1.0,
+                 chance: float = 1.0):
+        super().__init__(message_format, icon_key, image_size, exposure_time, chance)
+        self.display_type = DisplayType.Highest
+
+    def generate_text(self, highest_money: int) -> str:
+        amount = f'${highest_money:,}'
+        return self.message_format.format(amount)
+
+
+class DurationDisplay(Display):
+    def __init__(self, message_format: str,
+                 icon_key: str = None,
+                 image_size: str = 'large',
+                 exposure_time: float = 1.0,
+                 chance: float = 1.0):
+        super().__init__(message_format, icon_key, image_size, exposure_time, chance)
+        self.display_type = DisplayType.Duration
+
+    def generate_text(self, duration: float) -> str:
+        seconds = int(duration)
+        if seconds <= 120:
+            amount = f'{seconds}s'
+        elif seconds <= 7200:
+            minutes = seconds // 60
+            amount = f'{minutes}min'
+        elif seconds <= 432000:
+            hours = seconds // 3600
+            amount = f'{hours}h'
+        else:
+            days = seconds // 86400
+            amount = f'{days}d'
+
+        return self.message_format.format(amount)
